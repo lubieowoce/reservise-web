@@ -4,6 +4,7 @@
 //     Old_ReservationDetailsPopover = ReservationDetailsPopover
 // }
 
+
 _refreshPopovers = () => {
     cleanPopovers();
     (Object.values(calendar.reservationsById)
@@ -771,3 +772,4 @@ $.widget("custom.userProfileAutocomplete2", $.custom.userProfileAutocomplete, {
 _refreshPopovers()
 // calendar.updateFullcalendar()
 calendar.fetchReservations()
+calendar.HAS_ADD_CLIENTS = true
