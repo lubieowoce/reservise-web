@@ -181,6 +181,14 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
     var self = new old_ReservationDetailsPopover(event_id, refetch_func, attachment_func);
     // console.log('self', self)
 
+    self.old_showPopover = self.showPopover
+    self.showPopover = function () {
+        self.old_showPopover()
+        let popover = self.popoverContent[0]
+        popover.focus()
+    }
+    self.show = self.showPopover // rebind alias
+
     self.old_createPopoverContentFromResponse = self.createPopoverContentFromResponse
     self.createPopoverContentFromResponse = function(data) {
         // console.log('createPopoverContentFromResponse', self)
@@ -241,7 +249,6 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
         self.old_afterReservationDetailsRender()
 
         let popover = self.popoverContent[0]
-        popover.focus()
         let $popover = $(popover)
         let event = $popover.data('event')
         // console.log('event', event)
