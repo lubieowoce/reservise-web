@@ -1,9 +1,4 @@
-// 2020.02.25-r2
-
-// if (Old_ReservationDetailsPopover === undefined) {
-//     Old_ReservationDetailsPopover = ReservationDetailsPopover
-// }
-
+// 2020.02.25-r3
 
 _refreshPopovers = () => {
     cleanPopovers();
@@ -185,7 +180,7 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
     self.showPopover = function () {
         self.old_showPopover()
         let popover = self.popoverContent[0]
-        popover.focus()
+        popover.focus() // doesn't seem to have any effect, maybe it's not visible yet?
     }
     self.show = self.showPopover // rebind alias
 
@@ -552,6 +547,7 @@ calendar.feedReservationCache = function(data) {
     console.log('calendar.feedReservationCache', `${data.length} items`)
     return calendar.old_feedReservationCache(
         data.map((event) => {
+            // watch out! freshly created events (i.e. the wizard is still open) don't have an id yet
             event.price_info_promise = fetch_event_price_info(event.id)
             return event
         })
@@ -583,7 +579,7 @@ count_cards = (ann_data) => {
 }
 
 card_count_badge = (used, required, has_carnet, carnet_ms, is_paid) => {
-    if (required === 0 && (has_carnet === false || carnet_ms === 0)) {
+    if (required === 0 && (has_carnet === false || carnet_ms === 0) && used == 0) {
         return $(null)
     }
     let badge = $(`<span class="badge badge-pill badge-primary" style="padding: 2px 5px"></span>`)
@@ -596,7 +592,15 @@ card_count_badge = (used, required, has_carnet, carnet_ms, is_paid) => {
     } else if (used == required) {
         badge .text('✓') .css({backgroundColor: 'gray', opacity: '0.3'})
     } else {
-        badge .text(`${required - used}`) .css({backgroundColor: '#007bff'})
+        const bootstrap = {
+            success: '#28a745', // green
+            primary: '#007bff', // blue
+        }
+        if (used > required) {
+            badge .text(`${used - required}`) .css({backgroundColor: bootstrap.success})
+        } else {
+            badge .text(`${required - used}`) .css({backgroundColor: bootstrap.primary})
+        }
     }
     return badge
 }
@@ -656,6 +660,10 @@ BaseReservationEvent.prototype.render = function(event, element) {
         // console.log('BaseReservationEvent.render :: not a single_reservation, ignoring', event)
         return
     }
+    if (ReservationStub.prototype.isPrototypeOf(event) || event.className.includes('rsv-stub')) {
+        // reservation is being created
+        return
+    }
 
     let annotation = this.event.annotation
     let is_paid = this.event.className.includes('rsv-paid')
@@ -696,6 +704,8 @@ BaseReservationEvent.prototype.render = function(event, element) {
 
 
 
+// WARNING: ONLY VALID FOR JEROZOLIMSKIE 200
+// TARGÓWEK USES DIFFERENT PRICE_lIST_IDs AND CARNET_TYPEs
 
 PRICE_CARD_COUNT = {
     'Cennik Standardowy':                                                   0,
