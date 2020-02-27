@@ -1,4 +1,4 @@
-// 2020.02.25-r3
+// 2020.02.27-r1
 
 _refreshPopovers = () => {
     cleanPopovers();
@@ -619,6 +619,7 @@ fetch_event_price_info = (id) => (
         dataType: "json",
     }).then((data) => {
         let price_list_id = (data.html.match(/data-price-list-id="(\d+)"/) || [null, null])[1]
+        price_list_id = (price_list_id !== null && price_list_id !== "") ? Number(price_list_id) : null
         let carnet_raw = (data.html.match(/data-carnets="(.+?)"/) || [null, null])[1]
         let carnets = (carnet_raw !== null && carnet_raw !== '{}')
             ? JSON.parse(html_entities_decode(carnet_raw))
@@ -694,9 +695,10 @@ BaseReservationEvent.prototype.render = function(event, element) {
     event.price_info_promise.then((info) => {
         let {price_list_id, carnets} = info
         console.log('fetched price info for', event.id, $(event.title).text(), '->', info)
-        let required_cards_num = PRICE_CARD_COUNT[PRICE_LIST_ID_NAMES[price_list_id]] || 0
+        const venue_price_info = VENUE_PRICE_INFO[venue.id]
+        let required_cards_num = venue_price_info.prices[price_list_id].cards || 0
         let has_carnet = (carnets !== null)
-        let carnet_ms = (carnets !== null) ? (CARNET_TYPE_MS_COUNT[Object.values(carnets)[0].type] || 0) : null
+        let carnet_ms = (carnets !== null) ? (venue_price_info.carnets[Object.values(carnets)[0].type].cards || 0) : null
         let badge = card_count_badge(used_cards_num, required_cards_num, has_carnet, carnet_ms, is_paid)
         pending_badge.replaceWith(badge)
     })
@@ -704,66 +706,111 @@ BaseReservationEvent.prototype.render = function(event, element) {
 
 
 
-// WARNING: ONLY VALID FOR JEROZOLIMSKIE 200
-// TARGÓWEK USES DIFFERENT PRICE_lIST_IDs AND CARNET_TYPEs
-
-PRICE_CARD_COUNT = {
-    'Cennik Standardowy':                                                   0,
-    'Mam 1 Kartę MultiSport Plus/FitProfit/OK System':                      1,
-    'Mam 2 Karty MultiSport Plus/FitProfit/OK System':                      2,
-    'Karnet 5h':                                                            0,
-    'Karnet 10h':                                                           0,
-    'Karnet 5h - 1 karta zniżkowa':                                         1,
-    'Karnet 10h - 1 karta zniżkowa':                                        1,
-    'Karnet 10h - 2 karty zniżkowe':                                        2,
-    'Juniorzy, Studenci (<26l) - 1h':                                       0,
-    'Juniorzy, Studenci (<26l) - 1 karta zniżkowa':                         1,
-    'Juniorzy, Studenci (<26l) - 2 karty zniżkowe':                         2,
-    'Open Juniorzy, Studenci (<26 l)  - karnet 5h':                         0,
-    'Open Juniorzy, Studenci (<26 l)  - karnet 10h':                        0,
-    'Open Juniorzy, Studenci (<26 l)  - karnet 5h - jedna karta zniżkowa':  1,
-    'Open Juniorzy, Studenci (<26 l)  - karnet 10h - jedna karta zniżkowa': 1,
-}
-
-PRICE_LIST_ID_NAMES = {
-    ''    : 'Własna cena',
-    '1707': 'Cennik Standardowy',
-    '1708': 'Mam 1 Kartę MultiSport Plus/FitProfit/OK System',
-    '1709': 'Mam 2 Karty MultiSport Plus/FitProfit/OK System',
-    '1710': 'Mam 1 Kartę OK System Gold',
-    '1711': 'Karnet 5h',
-    '1712': 'Karnet 10h',
-    '1713': 'Karnet 5h - 1 karta zniżkowa',
-    '1714': 'Karnet 10h - 1 karta zniżkowa',
-    '1756': 'Liga - cena hurtowa',
-    '1757': 'Juniorzy, Studenci (<26l) - 1h',
-    '1758': 'Juniorzy, Studenci (<26l) - 1 karta zniżkowa',
-    '1759': 'Juniorzy, Studenci (<26l) - 2 karty zniżkowe',
-    '1760': 'Open Juniorzy, Studenci (<26 l)  - karnet 5h',
-    '1761': 'Open Juniorzy, Studenci (<26 l)  - karnet 10h',
-    '1762': 'Open Juniorzy, Studenci (<26 l)  - karnet 5h - jedna karta zniżkowa',
-    '1763': 'Open Juniorzy, Studenci (<26 l)  - karnet 10h - jedna karta zniżkowa',
-    '1918': 'Cennik trenerski',
-    '1936': 'Karnet 10h - 2 karty zniżkowe',
-    '2380': '__Goodie z kodem',
-    '3107': 'DoRozliczenia',
-}
-
-CARNET_TYPE_MS_COUNT = {
-    478: 1,
-    364: 1,
-    365: 1,
-    366: 1,
-    502: 2,
-    504: 2,
-    503: 2,
-    501: 2,
-    477: 1,
-    361: 1,
-    362: 1,
-    363: 1,
-    481: 1,
-    480: 1,
+VENUE_PRICE_INFO = {
+    80: {
+        "name": "SquashCity Jerozolimskie 200",
+        "prices": {
+            null: {"cards": 0, "name": "Własna cena"},
+            1707: {"cards": 0, "name": "Cennik Standardowy"},
+            1708: {"cards": 1, "name": "Mam 1 Kartę MultiSport Plus/FitProfit/OK System"},
+            1709: {"cards": 2, "name": "Mam 2 Karty MultiSport Plus/FitProfit/OK System"},
+            1710: {"cards": 1, "name": "Mam 1 Kartę OK System Gold"},
+            1711: {"cards": 0, "name": "Karnet 5h"},
+            1713: {"cards": 1, "name": "Karnet 5h - 1 karta zniżkowa"},
+            1712: {"cards": 0, "name": "Karnet 10h"},
+            1714: {"cards": 1, "name": "Karnet 10h - 1 karta zniżkowa"},
+            1936: {"cards": 2, "name": "Karnet 10h - 2 karty zniżkowe"},
+            1757: {"cards": 0, "name": "Juniorzy, Studenci (<26l) - 1h"},
+            1758: {"cards": 1, "name": "Juniorzy, Studenci (<26l) - 1 karta zniżkowa"},
+            1759: {"cards": 2, "name": "Juniorzy, Studenci (<26l) - 2 karty zniżkowe"},
+            1760: {"cards": 0, "name": "Open Juniorzy, Studenci (<26 l)  - karnet 5h"},
+            1762: {"cards": 1, "name": "Open Juniorzy, Studenci (<26 l)  - karnet 5h - jedna karta zniżkowa"},
+            1761: {"cards": 0, "name": "Open Juniorzy, Studenci (<26 l)  - karnet 10h"},
+            1763: {"cards": 1, "name": "Open Juniorzy, Studenci (<26 l)  - karnet 10h - jedna karta zniżkowa"},
+            1754: {"cards": 0, "name": "Decathlon - cena hurtowa"},
+            1755: {"cards": 0, "name": "Sekcja - cena hurtowa"},
+            1756: {"cards": 0, "name": "Liga - cena hurtowa"},
+            1918: {"cards": 0, "name": "Cennik trenerski"},
+            3107: {"cards": 0, "name": "DoRozliczenia"},
+            2380: {"cards": 0, "name": "__Goodie z kodem"},
+        },
+        "carnets": {
+            355: {"cards": 0, "name": "Karnet OPEN 5h, pn-pt 9-17"},
+            356: {"cards": 0, "name": "Karnet OPEN 5h, pn-pt 17-23"},
+            357: {"cards": 0, "name": "Karnet OPEN 5h, sb-nd"},
+            358: {"cards": 0, "name": "Karnet OPEN 10h, pn-pt 9-17"},
+            359: {"cards": 0, "name": "Karnet OPEN 10h, pn-pt 17-23"},
+            360: {"cards": 0, "name": "Karnet OPEN 10h, sb-nd"},
+            361: {"cards": 1, "name": "Karnet OPEN 5h, pn-pt 9-17 + 1 karta zniżkowa"},
+            362: {"cards": 1, "name": "Karnet OPEN 5h, pn-pt 17-23 + 1 karta zniżkowa"},
+            363: {"cards": 1, "name": "Karnet OPEN 5h, sb-nd + 1 karta zniżkowa"},
+            364: {"cards": 1, "name": "Karnet OPEN 10h, pn-pt 9-17 + 1 karta zniżkowa"},
+            365: {"cards": 1, "name": "Karnet OPEN 10h, pn-pt 17-23 + 1 karta zniżkowa "},
+            366: {"cards": 1, "name": "Karnet OPEN 10h, sb-nd + 1 karta zniżkowa"},
+            376: {"cards": 0, "name": "Karnet JUNIOR OPEN 5h, pn-pt 9-16"},
+            476: {"cards": 0, "name": "Karnet OPEN 5h, pn-pt 7-9"},
+            477: {"cards": 1, "name": "Karnet OPEN 5h, pn-pt 7-9 + 1 karta zniżkowa"},
+            478: {"cards": 1, "name": "Karnet OPEN 10h, pn-pt 7-9 + 1 karta zniżkowa"},
+            479: {"cards": 0, "name": "Karnet OPEN 10h, pn-pt 7-9"},
+            480: {"cards": 1, "name": "Karnet JUNIOR OPEN 5h, pn-pt 9-16 + 1 karta zniżkowa"},
+            481: {"cards": 1, "name": "Karnet JUNIOR OPEN 10h, pn-pt 9-16 + 1 karta zniżkowa"},
+            482: {"cards": 0, "name": "Karnet JUNIOR OPEN 10h, pn-pt 9-16"},
+            501: {"cards": 2, "name": "Karnet OPEN 10h, sb-nd + 2 karty zniżkowe"},
+            502: {"cards": 2, "name": "Karnet OPEN 10h, pn-pt 7-9 + 2 karty zniżkowe"},
+            503: {"cards": 2, "name": "Karnet OPEN 10h, pn-pt 17-23 + 2 karty zniżkowe"},
+            504: {"cards": 2, "name": "Karnet OPEN 10h, pn-pt 9-17 + 2 karty zniżkowe"},
+        },
+    },
+    82: {
+        "name": "SquashCity Targówek",
+        "prices": {
+            null: {"cards": 0, "name": "Własna cena"},
+            1540: {"cards": 0, "name": "Standardowy"},
+            1541: {"cards": 0, "name": "Juniorzy, Studenci (<26l) - 1h"},
+            1542: {"cards": 1, "name": "1 karta Multisport Plus/FitProfit/OK System"},
+            1543: {"cards": 2, "name": "2 karty Multisport Plus/FitProfit/OK System"},
+            1547: {"cards": 0, "name": "Karnet 5h"},
+            1539: {"cards": 1, "name": "Karnet 5h - 1 karta zniżkowa"},
+            1959: {"cards": 0, "name": "Karnet 10h"},
+            1960: {"cards": 1, "name": "Karnet 10h - 1 karta zniżkowa"},
+            1961: {"cards": 2, "name": "Karnet 10h - 2 Karty zniżkowe"},
+            2961: {"cards": 0, "name": "Karnet Liga"},
+            3108: {"cards": 0, "name": "DoRozliczenia"},
+            1617: {"cards": 0, "name": "Cennik trenerski"},
+            2984: {"cards": 0, "name": "Korty dla Pań 25 zł (28-29.09.19)"},
+            2985: {"cards": 1, "name": "Korty dla Pań z kartą zniżkową (28-29.09.19)"},
+            2986: {"cards": 0, "name": "Korty dla Pań 50% taniej (27.09.19)"},
+            2987: {"cards": 1, "name": "Korty dla Pań 50% taniej z kartą zniżkową  (27.09.19)"},
+            1546: {"cards": 0, "name": "XXX - do usunięcia: 7:00 - 17:00"},
+            1548: {"cards": 0, "name": "XXX - do usunięcia: weekend 9:00 - 22:00"},
+            1549: {"cards": 0, "name": "STARE: 1 wejście, OPEN"},
+            1572: {"cards": 0, "name": "STARE: Zgrana paka, 1 wejście (pon-czw)"},
+        },
+        "carnets": {
+            380: {"cards": 0, "name": "Carnet OPEN 10h, pn-pt 7-17"},
+            381: {"cards": 0, "name": "Carnet OPEN 10h, pn-pt 17-23"},
+            382: {"cards": 0, "name": "Carnet OPEN 10h, sb-nd"},
+            391: {"cards": 1, "name": "Carnet OPEN 10h, pn-pt 7-17 + 1 Karta zniżkowa"},
+            392: {"cards": 1, "name": "Carnet OPEN 10h, pn-pt 17-23 + 1 Karta zniżkowa"},
+            393: {"cards": 1, "name": "Carnet OPEN 10h, sb-nd  + 1 Karta zniżkowa"},
+            394: {"cards": 2, "name": "Carnet OPEN 10h, pn-pt 17-23 + 2 Karty zniżkowe"},
+            395: {"cards": 2, "name": "Carnet OPEN 10h, sb-nd + 2 Karty zniżkowe"},
+            377: {"cards": 0, "name": "Carnet OPEN 5h, pn-pt 7-17"},
+            378: {"cards": 0, "name": "Carnet OPEN 5h, pn-pt 17-23"},
+            379: {"cards": 0, "name": "Carnet OPEN 5h, sb-nd"},
+            385: {"cards": 1, "name": "Carnet OPEN 5h, pn-pt 7-17 + 1 Karta zniżkowa"},
+            386: {"cards": 1, "name": "Carnet OPEN 5h, pn-pt 17-23 + 1 Karta zniżkowa"},
+            387: {"cards": 1, "name": "Carnet OPEN 5h, sb-nd + 1 Karta zniżkowa"},
+            398: {"cards": 0, "name": "Carnet JUNIOR OPEN 10h, pn-pt 7-16"},
+            397: {"cards": 1, "name": "Carnet JUNIOR OPEN 10h, pn-pt 7-16 + 1 Karta zniżkowa"},
+            384: {"cards": 0, "name": "Carnet JUNIOR OPEN 5h"},
+            383: {"cards": 0, "name": "Carnet JUNIOR OPEN 5h, pn-pt 7-16"},
+            396: {"cards": 1, "name": "Carnet JUNIOR OPEN 5h, pn-pt 7-16 + 1 Karta zniżkowa"},
+            306: {"cards": 0, "name": "Carnet OPEN 10h"},
+            325: {"cards": 0, "name": "Carnet  Zgrana Paka - Weekend"},
+            326: {"cards": 0, "name": "Carnet Zgrana paka"},
+        },
+    },
 }
 
 $.widget("custom.userProfileAutocomplete2", $.custom.userProfileAutocomplete, {
