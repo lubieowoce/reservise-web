@@ -1,4 +1,4 @@
-// 2020.02.27-r1
+// 2020.02.29-r1
 
 _refreshPopovers = () => {
     cleanPopovers();
@@ -24,11 +24,11 @@ parse_annotation_data = (ann) => {
     let val, ann_text
     let match = ann.match(SEPARATOR_REGEX)
     if (match === null) {
-        console.log('parse_annotation_data ::', 'no separator found', ann)
+        // console.log('parse_annotation_data ::', 'no separator found', ann)
         ann_text = ann
         val = null
     } else {
-        console.log('parse_annotation_data ::', 'found separator', match)
+        // console.log('parse_annotation_data ::', 'found separator', match)
         ann_text = ann.substring(0, match.index - 1) // before leading newline
         let ann_val = ann.substring(match.index + match[0].length + 1) // after trailing newline
         // console.log('parse_annotation_data ::', 'value', ann_val)
@@ -47,7 +47,6 @@ modify_annotation_data = (ann, f) => {
     let val2 = f((val === null) ? INITIAL_STATE : val)
     return [ann_text, SEPARATOR, JSON.stringify(val2)].join('')
 }
-
 
 
 popover_annotation = (popover) => {
@@ -122,12 +121,13 @@ modify_popover_annotation_data = (popover, f) => {
 
 get_benefit_reservation = () => (
     Object.entries(calendar.reservationsById)
-        .find(([id, r]) => (
+        .filter(([id, r]) => (
             r.event !== undefined &&
             ['rsv-active', 'class-event'].every((cls) => r.event.className.includes(cls)) &&
-            r.event.title.search(/karty zniżkowe/i) !== -1 // &&
+            r.event.title.search(/karty zniżkowe/i) !== -1 &&
+            calendar.date.isSame(r.event.start, 'day')
             // document.contains(getp(r, ['element', 0]))
-        )) [1]
+        )) [0][1]
 )
 
 
@@ -488,51 +488,7 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
             // console.log('user autocomplete :: after clear', $custom_input.find('.custom-add-user-search').data('customUserProfileAutocomplete').selectedItem)
         })
 
-
-        // (() => {
-
-        //     let benefit_res_id = get_benefit_reservation().id
-        //     let add_client_url = `/events/create_class_reservation/?event_id=${benefit_res_id}`
-        //     let add_client_form = self.$custom_input.find("#add-client-form");
-        //         // let x = self.add_client_form.form.find('.userprofile-form-part')
-        //         // x.next().find(':not(button)').hide()
-        //         // self.$custom_input.find('.fitness-add-client-form').css('display', 'flex')
-
-        //     // $.ajax({
-        //     //     url:`/events/create_class_reservation/?event_id=${benefit_res_id}`,
-        //     //     method: 'GET',
-        //     //     dataType: 'json',
-        //     //     success: (data) => {
-        //     //         console.log('replacing', self.$custom_input.find('.custom-add-benefit-user-form'))
-        //     //         self.$custom_input.find('.custom-add-benefit-user-form').replaceWith($(data.html))
-        //     //     }
-        //     // })
-
-        // })
-
     }
-
-
-
-    // self.add_class_reservation_to_annotation = (data) => {
-    //     console.log('adding to annotation', data)
-    //     if (data.updatedReservations.length == 1 &&
-    //         data.updatedReservations[0].id !== self.event.id &&
-    //         data.updatedReservations[0].className.includes('class-event')
-    //         ) {
-    //         class_reservation_id = data.phone_url.match(/\/sms\/send\/class_reservation_notification\/(\d+)/)[1]
-    //         modify_popover_annotation(self, (ann) =>
-    //             modify_annotation_data(ann, (val)=>{
-    //                 if (!('class_reservations' in val)) {
-    //                     val.class_reservations = []
-    //                 }
-    //                 val.class_reservations.push(class_reservation_id)
-    //                 return val
-    //             })
-    //         )
-    //     }
-    // }
-
 
     return self
 }
@@ -578,28 +534,50 @@ count_cards = (ann_data) => {
     return null
 }
 
+
+$(document).ready(() => {
+    const bootstrap = {
+        success: '#28a745', // green
+        primary: '#007bff', // blue
+    }
+    let head = $('head')
+    head.append($('<style id="card-info-badge-styles"></style>').text(`
+        .badge.card-info-badge { padding: 2px 5px; }
+        .badge.card-info-badge.loading   { background-color: gray;                 opacity: 0.3; }
+        .badge.card-info-badge.carnet    { background-color: rgba(0,0,0, 0.3);                   }
+        .badge.card-info-badge.fulfilled { background-color: gray;                 opacity: 0.3; }
+        .badge.card-info-badge.extra     { background-color: ${bootstrap.success};               }
+        .badge.card-info-badge.missing   { background-color: ${bootstrap.primary};               }
+    `))
+    // rgba(16, 76, 219, 0.9) // teal
+    // rgba(43, 25, 250, 0.7) // purple
+    let c = 'rgba(30, 54, 250, 0.85)' // deep purplish blue
+    head.append($('<style id="custom-styles"></style>').text(`
+        .rsv-unpaid.rsv-has-carnet {
+            box-shadow: inset 0px 5px 0px 0px ${c} !important;
+        }
+    `))
+
+})
+
 card_count_badge = (used, required, has_carnet, carnet_ms, is_paid) => {
     if (required === 0 && (has_carnet === false || carnet_ms === 0) && used == 0) {
         return $(null)
     }
-    let badge = $(`<span class="badge badge-pill badge-primary" style="padding: 2px 5px"></span>`)
+    let badge = $(`<span class="card-info-badge badge badge-pill"></span>`)
     if (used === null || required === null || has_carnet === null || is_paid === null) {
-        badge .append(spinner_small()) .css({backgroundColor: 'gray', opacity: '0.3'})
+        badge .append(spinner_small()) .addClass('loading')
     } else if (!is_paid && has_carnet === true) {
-        badge .text(`${carnet_ms - used}`) .css({backgroundColor: 'rgba(0,0,0, 0.3)'})
+        badge .text(`${carnet_ms - used}`) .addClass('carnet')
     // } else if (required === 0 && has_carnet === true) {
     //     badge .text() .css({backgroundColor: 'rgba(0,0,0, 0.3)'})
     } else if (used == required) {
-        badge .text('✓') .css({backgroundColor: 'gray', opacity: '0.3'})
+        badge .text('✓') .addClass('fulfilled')
     } else {
-        const bootstrap = {
-            success: '#28a745', // green
-            primary: '#007bff', // blue
-        }
         if (used > required) {
-            badge .text(`${used - required}`) .css({backgroundColor: bootstrap.success})
+            badge .text(`${used - required}`) .addClass('extra')
         } else {
-            badge .text(`${required - used}`) .css({backgroundColor: bootstrap.primary})
+            badge .text(`${required - used}`) .addClass('missing')
         }
     }
     return badge
@@ -701,14 +679,42 @@ BaseReservationEvent.prototype.render = function(event, element) {
         let carnet_ms = (carnets !== null) ? (venue_price_info.carnets[Object.values(carnets)[0].type].cards || 0) : null
         let badge = card_count_badge(used_cards_num, required_cards_num, has_carnet, carnet_ms, is_paid)
         pending_badge.replaceWith(badge)
+        if (has_carnet) {
+            element.addClass('rsv-has-carnet')
+        }
     })
 }
 
 
 
+
+
+$.widget("custom.userProfileAutocomplete2", $.custom.userProfileAutocomplete, {
+    _renderMenu: function(ul, items) {
+        if (this.options.showAddClient) {
+            items.push({is_add_new_client: null, label: '', value: ''})
+        }
+        ul.addClass('user-profile-autocomplete-menu');
+        $.ui.autocomplete.prototype._renderMenu.call(this, ul, items);
+    },
+    _renderItem: function(ul, item) {
+        if (this.options.showAddClient && 'is_add_new_client' in item) {
+            let el = ich.autocompleteAddNewClient()
+            ul.append(el);
+            return el
+        } else {
+            return $.ui.autocomplete.prototype._renderItem.call(this, ul, item)
+        }
+    },
+});
+
+
 VENUE_PRICE_INFO = {
     80: {
         "name": "SquashCity Jerozolimskie 200",
+        "class_prices": {
+            benefit: 1646,
+        },
         "prices": {
             null: {"cards": 0, "name": "Własna cena"},
             1707: {"cards": 0, "name": "Cennik Standardowy"},
@@ -813,27 +819,150 @@ VENUE_PRICE_INFO = {
     },
 }
 
-$.widget("custom.userProfileAutocomplete2", $.custom.userProfileAutocomplete, {
-    _renderMenu: function(ul, items) {
-        if (this.options.showAddClient) {
-            items.push({is_add_new_client: null, label: '', value: ''})
-        }
-        ul.addClass('user-profile-autocomplete-menu');
-        $.ui.autocomplete.prototype._renderMenu.call(this, ul, items);
-    },
-    _renderItem: function(ul, item) {
-        if (this.options.showAddClient && 'is_add_new_client' in item) {
-            let el = ich.autocompleteAddNewClient()
-            ul.append(el);
-            return el
-        } else {
-            return $.ui.autocomplete.prototype._renderItem.call(this, ul, item)
-        }
-    },
-});
 
 
 _refreshPopovers()
 // calendar.updateFullcalendar()
 calendar.fetchReservations()
 calendar.HAS_ADD_CLIENTS = true
+
+
+
+
+parse_class_reservation = (modal) => {
+    const parse_client = (el) => {
+        // sorry, the html is really ugly
+        // console.log(el)
+        let res = {}
+        res['reservation_id'] = null
+        res['status'] = (
+            el.hasClass('rsv-active'   ) ? 'active'    : 
+            el.hasClass('rsv-cancelled') ? 'cancelled' :
+            null 
+        )
+        try {
+            let x = el.find('.panel-title .row').first().find('.col-lg-3')
+            // console.log(x)
+            let [cancel, client, price, presence] = x.toArray().map($)
+            let [collapse, client2] = client.find('a').toArray().map($)
+            res['client_name'] = (collapse.text())
+            res['client_id'] = client2.attr('href').match(/\/clients\/c\/(\d+)\//)[1]
+            res['reservation_id'] = collapse.attr('href').match(/#event-reservation-collapse-(\d+)/)[1]
+            price2 = price.find('.price').first()
+            // console.log('price', $.trim(price.text()), price)
+            // console.log('price2', price2.text(), price2)
+            res['reservation_price'] = (
+                // standard -> `price` is an empty div
+                // cancelled -> `price` contains something like "reservation cancelled" 
+                (price2.length === 0)            ? ($.trim(price.text()) ? null : 'standard') :
+                (price2.text().search(/-15[,.]00/) !== -1) ? 'multisport' : 
+                (price2.text().search(/-20[,.]00/) !== -1) ? 'ok_gold'    : 
+                null
+            )
+            // console.log(res['reservation_price'])
+            // console.log()
+            // print(price, '->', res['reservation_price'])
+            // res['reservation_id'] = re.match(r'/events/cancel_class_reservation/(\d+)/', cancel.select('.class_reservation_cancel')[0].attrs['data-url']).groups()[0]
+        } catch (e) {
+            console.log(e)
+        }
+        return res 
+    }
+    return modal.find('.fitnessPanel').toArray().map((el)=>parse_client($(el)))
+}
+
+function class_event_reservations(event_id) {
+    return class_event_reservations_raw(event_id).then((text) => parse_class_reservation($(text)))
+}
+
+
+function class_event_reservations_raw(event_id) {
+    return $.get(`https://reservise.com/events/class_event_reservations_list/${event_id}`)
+}
+
+
+function group_by(xs, f) {
+    let g = {}
+    for (let x of xs) {
+        let fx = f(x)
+        if (!(fx in g)) {
+            g[fx] = []
+        }
+        g[fx].push(x)
+    }
+    return g
+}
+
+// existing_num = Object.fromEntries(Object.entries(existing_by_client).map(([c,rs])=>[c,rs.length]))
+// ann_num = Object.fromEntries(Object.entries(ann_ms_by_client).map(([c,rs])=>[c,rs.length]))
+// x = []
+// for (let [c, n] of Object.entries(existing_num)) {
+//     let na = ann_num[c] || 0
+//     if (na != n) {
+//         for(let i=0; i<n - na; i++) {
+//             x.push(existing_by_client[c][0].client_name)
+//         }
+//     }
+// }
+// x.sort()
+
+async function sync_benefit(dry_run=true) {
+    let benefit_res_id = get_benefit_reservation().id
+    let existing = (await class_event_reservations(benefit_res_id)) .filter((r) => r.status === 'active')
+    console.log('before', existing)
+    // return
+    let existing_by_client = group_by(existing, (r)=>r.client_id)
+    let ann_ms = Object.values(calendar.reservationsById)
+                    .filter((r) => r !== undefined && r.event !== undefined && calendar.date.isSame(r.event.start, 'day'))
+                    .map((r) => get_annotation_data(r.event.annotation))
+                    .filter((d) => d!==null && d.users.length>0)
+                    .flatMap((d) =>d.users)
+                    .filter((e) => e.card)
+    console.log('from annotations', ann_ms)
+    // return
+    let ann_ms_by_client = group_by(ann_ms, (en)=>en.user.id)
+    for (let [client_id, entries] of Object.entries(ann_ms_by_client)) {
+        let existing_reservations = existing_by_client[client_id] || []
+        let diff = entries.length - existing_reservations.length
+        let client_name = entries[0].user.label
+        console.log(client_id, client_name, 'needs', diff)
+        if (dry_run) { continue }
+        for (let i = 0; i < diff; i++) {
+            console.log('adding', client_name, entries[0].user.label)
+            let res = await add_benefit_reservation(client_id, benefit_res_id)
+            console.log(res)
+            if (res.success === undefined || !res.success) {
+                console.log('aborting')
+                return
+            }
+        }
+    }
+}
+
+// let KTOS_KTOS = 687826
+
+add_benefit_reservation = (client_id, benefit_res_id=null) => {
+    benefit_res_id = (benefit_res_id === null) ? get_benefit_reservation().id : benefit_res_id
+    let add_client_url = `/events/create_class_reservation/?event_id=${benefit_res_id}`
+    return $.ajax({type: 'GET', url: add_client_url, dataType: 'json', }).then((data) => {
+        let csrf = (data.html.match(/<input type='hidden' name='csrfmiddlewaretoken' value='(.+?)'/) || [null, null])[1]
+        if (!csrf) {
+            throw new Error('no csrf token found' + JSON.stringify(data))
+        }
+        return $.ajax({type: 'POST', url: '/events/create_class_reservation/',  dataType: 'json', data: {
+            csrfmiddlewaretoken: csrf,
+            event_id: benefit_res_id,
+            user_profile: client_id,
+            price_list: '15.00;'+VENUE_PRICE_INFO[venue.id].class_prices.benefit,
+            value: '15.00',
+            last_name: '',
+            first_name: '',
+            phone_number: '',
+            email: '',
+            annotation: '',
+            create_new_client: '',
+        }})
+    })
+}
+
+// await add_benefit_reservation(KTOS_KTOS).then((res)=>calendar.reservationsUpdated(res.updatedReservations))
