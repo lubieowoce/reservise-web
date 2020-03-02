@@ -1,4 +1,4 @@
-// 2020.03.02-r3
+// 2020.03.02-r4
 
 /* eslint-env jquery */
 
@@ -33,13 +33,16 @@
     modify_popover_annotation_data
     
     get_benefit_reservation
+    create_client
     
     is_class_reservation 
     is_unavailability    
     is_single_reservation
     
     count_cards
+    card_count_badge_state
     card_count_badge_render
+
     spinner_small
     html_entities_decode
     fetch_event_price_info
@@ -186,7 +189,34 @@ get_benefit_reservation = () => (
         )) [0][1]
 )
 
-
+create_client = ({last_name, first_name}) => (
+    $.ajax({
+        type: 'GET', url: '/clients/create/client/', dataType: 'json',
+    }).then((data)=> {
+        let csrf = (data.html.match(/<input type='hidden' name='csrfmiddlewaretoken' value='(.+?)'/) || [null, null])[1]
+        if (!csrf) {
+            throw new Error('no csrf token found' + JSON.stringify(data))
+        }
+        return $.ajax({type: 'POST', url: '/clients/create/client/',  dataType: 'json', data: {
+            csrfmiddlewaretoken: csrf,
+            annotation: '',
+            first_name: first_name,
+            last_name: last_name,
+            email: '',
+            phone_number: '',
+            discount: 0,
+            enable_sms_notifications: 'on',
+            enable_creating_reservations: 'on',
+            is_new_player: 'on',
+            birth_date: '',
+            address: '',
+            zip_code: '',
+            venue: venue.id, // global
+        }})
+    }).then((res) => (
+        {id: Number(res.client_info_url.match(/\/clients\/client\/(\d+)\//)[1])}
+    ))
+)
 
 
 // inject a method to be called when an element
@@ -495,30 +525,9 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
                 let card = $custom_input.data('card')
 
                 console.log('creating user', lastname, firstname)
-                $.ajax({type: 'GET', url: '/clients/create/client/', dataType: 'json'}) .then((data)=> {
-                    let csrf = (data.html.match(/<input type='hidden' name='csrfmiddlewaretoken' value='(.+?)'/) || [null, null])[1]
-                    if (!csrf) {
-                        throw new Error('no csrf token found' + JSON.stringify(data))
-                    }
-                    return $.ajax({type: 'POST', url: '/clients/create/client/',  dataType: 'json', data: {
-                        csrfmiddlewaretoken: csrf,
-                        annotation: '',
-                        first_name: firstname,
-                        last_name: lastname,
-                        email: '',
-                        phone_number: '',
-                        discount: 0,
-                        enable_sms_notifications: 'on',
-                        enable_creating_reservations: 'on',
-                        is_new_player: 'on',
-                        birth_date: '',
-                        address: '',
-                        zip_code: '',
-                        venue: venue.id, // global
-                    }})
-                }).then((res) => {
+                create_client({last_name: lastname, first_name: firstname}).then((client) => {
                     // res.success
-                    let id = Number(res.client_info_url.match(/\/clients\/client\/(\d+)\//)[1])
+                    let id = client.id
                     let entry = {user: {id: id, label: lastname + ' ' + firstname}, card: card}
                     console.log('adding entry', entry)
 
@@ -634,6 +643,28 @@ badge:
     error   {msg: str}
 */
 
+
+card_count_badge_state = ({used_cards_num, price_list_id, carnets, is_paid}) => {
+    const venue_price_info = VENUE_PRICE_INFO[venue.id]
+    let price_info = venue_price_info.prices[price_list_id]
+    if (price_info === undefined) {
+        return {type: 'error', msg: `Unknown price (price_list_id: ${price_list_id})`}
+    } else {
+        let required_cards_num
+        if (is_paid || (!is_paid && carnets === null)) {
+            required_cards_num = price_info.cards
+        } else { // !is_paid && carnets !== null 
+            let carnet_type = Object.values(carnets)[0].type
+            let carnet_price_info = venue_price_info.carnets[carnet_type]
+            if (carnet_price_info === undefined) {
+                return {type: 'error', msg: `Unknown carnet (carnet_type: ${carnet_type})`}
+            }
+            required_cards_num = carnet_price_info.cards
+        }
+        return {type: 'ready', used: used_cards_num, required: required_cards_num, paid: is_paid}
+    }  
+}
+
 card_count_badge_render = (state) => {
     const make_badge = () => $(`<span class="card-info-badge badge badge-pill"></span>`)
     let badge
@@ -725,16 +756,18 @@ BaseReservationEvent.prototype.render = function(event, element) {
         return
     }
 
-    let annotation = this.event.annotation
-    let is_paid = this.event.className.includes('rsv-paid')
-
-    let ann_data = annotation ? get_annotation_data(annotation) : {users: []}
-    let used_cards_num = count_cards(ann_data) || 0
 
     let title = this.element.find('.fc-event-title')
     let title_text = title.find('div')
     title.css({display: 'flex', justifyContent: 'flex-end', alignItems: 'baseline'})
     title_text.css({marginLeft: 'auto', marginRight: 'auto'})
+
+
+    let annotation = this.event.annotation
+    let is_paid = this.event.className.includes('rsv-paid')
+
+    let ann_data = annotation ? get_annotation_data(annotation) : {users: []}
+    let used_cards_num = count_cards(ann_data) || 0
 
     // should only happen in development, during reloading
     if (event.price_info_promise === undefined) {
@@ -746,31 +779,16 @@ BaseReservationEvent.prototype.render = function(event, element) {
     title.append(pending_badge)
 
     event.price_info_promise.then((info) => {
-        let {price_list_id, carnets} = info
         console.log('fetched price info for', event.id, $(event.title).text(), '->', info)
-        let badge_state = (() => {
-            const venue_price_info = VENUE_PRICE_INFO[venue.id]
-            let price_info = venue_price_info.prices[price_list_id]
-            if (price_info === undefined) {
-                return {type: 'error', msg: `Unknown price (price_list_id: ${price_list_id})`}
-            } else {
-                let required_cards_num
-                if (is_paid || (!is_paid && carnets === null)) {
-                    required_cards_num = price_info.cards
-                } else { // !is_paid && carnets !== null 
-                    let carnet_type = Object.values(carnets)[0].type
-                    let carnet_price_info = venue_price_info.carnets[carnet_type]
-                    if (carnet_price_info === undefined) {
-                        return {type: 'error', msg: `Unknown carnet (carnet_type: ${carnet_type})`}
-                    }
-                    required_cards_num = carnet_price_info.cards
-                }
-                return {type: 'ready', used: used_cards_num, required: required_cards_num, paid: is_paid}
-            }  
-        })()
+        let badge_state = card_count_badge_state({
+            used_cards_num: used_cards_num,
+            is_paid: is_paid,
+            price_list_id: info.price_list_id,
+            carnets: info.carnets
+        })
         let badge = card_count_badge_render(badge_state)
         pending_badge.replaceWith(badge)
-        if (carnets !== null) {
+        if (info.carnets !== null) {
             element.addClass('rsv-has-carnet')
         }
     })
