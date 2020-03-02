@@ -1,4 +1,4 @@
-// 2020.02.29-r1
+// 2020.03.01-r1
 
 _refreshPopovers = () => {
     cleanPopovers();
@@ -537,17 +537,18 @@ count_cards = (ann_data) => {
 
 $(document).ready(() => {
     const bootstrap = {
-        success: '#28a745', // green
-        primary: '#007bff', // blue
+        success: 'rgb(40, 167, 69)', // green
+        primary: 'rgb(0,123,255)', // blue
     }
     let head = $('head')
     head.append($('<style id="card-info-badge-styles"></style>').text(`
         .badge.card-info-badge { padding: 2px 5px; }
         .badge.card-info-badge.loading   { background-color: gray;                 opacity: 0.3; }
-        .badge.card-info-badge.carnet    { background-color: rgba(0,0,0, 0.3);                   }
+        .badge.card-info-badge.guessed   {                                         opacity: 0.6; }
+        .badge.card-info-badge.missing   { background-color: ${bootstrap.primary};               }
         .badge.card-info-badge.fulfilled { background-color: gray;                 opacity: 0.3; }
         .badge.card-info-badge.extra     { background-color: ${bootstrap.success};               }
-        .badge.card-info-badge.missing   { background-color: ${bootstrap.primary};               }
+        .badge.card-info-badge.error     { background-color: gray;                 opacity: 0.5; }
     `))
     // rgba(16, 76, 219, 0.9) // teal
     // rgba(43, 25, 250, 0.7) // purple
@@ -580,6 +581,44 @@ card_count_badge = (used, required, has_carnet, carnet_ms, is_paid) => {
             badge .text(`${required - used}`) .addClass('missing')
         }
     }
+    return badge
+}
+
+/*
+badge:
+    loading {}
+    ready   {used: int, required: int, paid: bool}
+    error   {msg: str}
+*/
+
+card_count_badge2 = (state) => {
+    const make_badge = () => $(`<span class="card-info-badge badge badge-pill"></span>`)
+    let badge
+    if (state.type === 'loading') {
+        badge = make_badge()
+        badge .append(spinner_small()) .addClass('loading')
+
+    } else if (state.type === 'ready') {
+        let {used, required, paid} = state
+        if (required === 0 && used === 0) {
+            return $(null)
+        }
+        badge = make_badge()
+        if (used > required) {
+            badge .text(`${used - required}`) .addClass('extra')
+        } else if (used < required) {
+            badge .text(`${required - used}`) .addClass('missing')
+        } else {
+            badge .text('✓') .addClass('fulfilled')
+        }
+        if (!paid) { badge .addClass('guessed') }
+
+    } else if (state.type === 'error') {
+        let {msg} = state
+        badge = make_badge()
+        badge .text('×') .addClass('error') // .tooltip(msg)
+    }
+
     return badge
 }
 
@@ -647,13 +686,7 @@ BaseReservationEvent.prototype.render = function(event, element) {
     let annotation = this.event.annotation
     let is_paid = this.event.className.includes('rsv-paid')
 
-    let ann_data
-    if (annotation) {
-        [_, _, ann_data] = parse_annotation_data(annotation)
-    } else {
-        ann_data = {users: []}
-    }
-
+    let ann_data = annotation ? get_annotation_data(annotation) : {users: []}
     let used_cards_num = count_cards(ann_data) || 0
 
     let title = this.element.find('.fc-event-title')
@@ -667,19 +700,35 @@ BaseReservationEvent.prototype.render = function(event, element) {
     }
     let pending_badge = (event.price_info_promise.isResolved)
         ? $('<span></span>')
-        : card_count_badge(used_cards_num, null, null, null)
+        : card_count_badge2({type: 'loading'})
     title.append(pending_badge)
 
     event.price_info_promise.then((info) => {
         let {price_list_id, carnets} = info
         console.log('fetched price info for', event.id, $(event.title).text(), '->', info)
-        const venue_price_info = VENUE_PRICE_INFO[venue.id]
-        let required_cards_num = venue_price_info.prices[price_list_id].cards || 0
-        let has_carnet = (carnets !== null)
-        let carnet_ms = (carnets !== null) ? (venue_price_info.carnets[Object.values(carnets)[0].type].cards || 0) : null
-        let badge = card_count_badge(used_cards_num, required_cards_num, has_carnet, carnet_ms, is_paid)
+        let badge_state = (() => {
+            const venue_price_info = VENUE_PRICE_INFO[venue.id]
+            let price_info = venue_price_info.prices[price_list_id]
+            if (price_info === undefined) {
+                return {type: 'error', msg: `Unknown price (price_list_id: ${price_list_id})`}
+            } else {
+                let required_cards_num
+                if (is_paid || (!is_paid && carnets === null)) {
+                    required_cards_num = price_info.cards
+                } else { // !is_paid && carnets !== null 
+                    let carnet_type = Object.values(carnets)[0].type
+                    let carnet_price_info = venue_price_info.carnets[carnet_type]
+                    if (carnet_price_info === undefined) {
+                        return {type: 'error', msg: `Unknown carnet (carnet_type: ${carnet_type})`}
+                    }
+                    required_cards_num = carnet_price_info.cards
+                }
+                return {type: 'ready', used: used_cards_num, required: required_cards_num, paid: is_paid}
+            }  
+        })()
+        let badge = card_count_badge2(badge_state)
         pending_badge.replaceWith(badge)
-        if (has_carnet) {
+        if (carnets !== null) {
             element.addClass('rsv-has-carnet')
         }
     })
@@ -715,6 +764,7 @@ VENUE_PRICE_INFO = {
         "class_prices": {
             benefit: 1646,
         },
+        "price_default": 1707,
         "prices": {
             null: {"cards": 0, "name": "Własna cena"},
             1707: {"cards": 0, "name": "Cennik Standardowy"},
@@ -769,6 +819,7 @@ VENUE_PRICE_INFO = {
     },
     82: {
         "name": "SquashCity Targówek",
+        "price_default": 1540,
         "prices": {
             null: {"cards": 0, "name": "Własna cena"},
             1540: {"cards": 0, "name": "Standardowy"},
@@ -861,8 +912,6 @@ parse_class_reservation = (modal) => {
             )
             // console.log(res['reservation_price'])
             // console.log()
-            // print(price, '->', res['reservation_price'])
-            // res['reservation_id'] = re.match(r'/events/cancel_class_reservation/(\d+)/', cancel.select('.class_reservation_cancel')[0].attrs['data-url']).groups()[0]
         } catch (e) {
             console.log(e)
         }
