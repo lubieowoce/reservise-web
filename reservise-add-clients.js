@@ -1,4 +1,59 @@
-// 2020.03.02-r2
+// 2020.03.02-r3
+
+/* eslint-env jquery */
+
+/* eslint no-global-assign: "off" */
+/* eslint no-unused-vars: ["warn", { "varsIgnorePattern": "^_", "argsIgnorePattern": "^_" }] */
+/* eslint no-prototype-builtins: "off" */
+
+/* global
+    ich
+    calendar, venue
+    urlReverse
+    Message, messages
+    BaseReservationEvent, ReservationStub, ReservationEvent
+    ReservationDetailsPopover, cleanPopovers
+*/
+
+/* global
+    old_ReservationDetailsPopover
+
+    _refreshPopovers
+    escapeRegExp
+
+    parse_annotation_data
+    get_annotation_data
+    modify_annotation_data
+    popover_annotation
+    modify_popover_annotation
+    get_event_details_uninited_annotation_tag
+    get_popover_annotation
+    serialize_popover_data
+    save_popover_data
+    modify_popover_annotation_data
+    
+    get_benefit_reservation
+    
+    is_class_reservation 
+    is_unavailability    
+    is_single_reservation
+    
+    count_cards
+    card_count_badge_render
+    spinner_small
+    html_entities_decode
+    fetch_event_price_info
+    parse_class_reservation
+    class_event_reservations
+    class_event_reservations_raw
+    group_by
+    add_benefit_reservation
+    
+    VENUE_PRICE_INFO
+*/
+
+
+
 
 _refreshPopovers = () => {
     cleanPopovers();
@@ -12,8 +67,9 @@ _refreshPopovers = () => {
     );
 }
 
-function escapeRegExp(string) {
-  return string.replace(/[.*+\-?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+escapeRegExp = (s) => {
+    return s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'); // $& means the whole matched string
+    // return s.replace(/[.*+\-?\^${}()|[\]\\]/g, '\\$&');
 }
 
 parse_annotation_data = (ann) => {
@@ -115,13 +171,13 @@ modify_popover_annotation_data = (popover, f) => {
     let data = JSON.parse($custom_input.attr('data-extracted')) || {users: []}
     let new_data = f(data)
     let new_data_serialized = JSON.stringify(new_data)
-    $custom_input.attr('data-extracted', new_data_serialized)            
+    $custom_input.attr('data-extracted', new_data_serialized)
     save_popover_data(popover)
 }
 
 get_benefit_reservation = () => (
     Object.entries(calendar.reservationsById)
-        .filter(([id, r]) => (
+        .filter(([_id, r]) => (
             r.event !== undefined &&
             ['rsv-active', 'class-event'].every((cls) => r.event.className.includes(cls)) &&
             r.event.title.search(/karty zniżkowe/i) !== -1 &&
@@ -139,23 +195,23 @@ get_benefit_reservation = () => (
 // (see SmartForm.setHandlers and SmartForm.handleActionClick)
 
 // when the user edits and saves the annotation,
-// we need to reinject the extracted data. 
+// we need to reinject the extracted data.
 // otherwise, all the custom data would be lost!
 
 // IDEA: SmartForm.transitionTo(new_state) calls this[old_state+"2"+new_state]
 // we could use this to inject some code to extract the stored data during init!
 
-$.fn.smartform.Constructor.prototype.inject_custom_data = function (event) {
+$.fn.smartform.Constructor.prototype.inject_custom_data = function(_event) {
     // console.log('SmartForm.inject_custom_data', this, event)
     let $custom_input = this.$element.closest('.event-details').find('.custom-wrapper')
     // console.log('found wrapper', $custom_input)
     let data_serialized = $custom_input.attr('data-extracted')
     let data = JSON.parse(data_serialized)
-    this.inputElements().val((i, ann) => {
+    this.inputElements().val((_i, ann) => {
         let [ann_text, sep, _] = parse_annotation_data(ann)
         let new_ann = ann_text + ((data === null) ? "" : (sep + data_serialized))
         console.log('new annotation', new_ann)
-        return new_ann        
+        return new_ann
     })
     // this.inputElements().val(new_ann)
 }
@@ -299,7 +355,7 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
                 }
 
             } else {
-                throw new Error(`Invalid custom_input state: \`${state}\``)
+                throw new Error(`Invalid custom_input state: "${state}"`)
             }
         }
 
@@ -311,7 +367,7 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
             } else if (state === 'create') {
                 $custom_input.find('.custom-add-user-create').val('')
             } else {
-                throw new Error(`Invalid custom_input state: \`${state}\``)
+                throw new Error(`Invalid custom_input state: "${state}"`)
             }
             custom_input_init_state($custom_input)
             custom_input_update($custom_input)
@@ -387,17 +443,17 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
                     }
                     // console.log('switching to create', lastname, firstname)
                     $custom_input.data('state', 'create')
-                    custom_input_update($custom_input)       
+                    custom_input_update($custom_input)
                     $custom_input.find('.custom-add-user-create-lastname').val(lastname).focus()
                     $custom_input.find('.custom-add-user-create-firstname').val(firstname)
                     $custom_input.find('.custom-add-user-create').change()
-                    custom_input_update($custom_input)       
+                    custom_input_update($custom_input)
                     return false
                 } else {
                     // select existing client
                     let user = (item === null) ? null : {id: item.id, label: item.label}
                     $custom_input.data('user', user)
-                    custom_input_update($custom_input)                      
+                    custom_input_update($custom_input)
                 }
             }
         })
@@ -418,7 +474,6 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
             $custom_input.data('card', has_card)
             custom_input_update($custom_input)
         })
-        
 
         $custom_input.find('.custom-add-user-submit').click(() => {
             // console.log('user autocomplete :: submit', $custom_input.data('user'))
@@ -473,11 +528,11 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
                         return data
                     })
                 })
-                
+
             } else {
-                throw new Error(`Invalid custom_input state: \`${state}\``)
+                throw new Error(`Invalid custom_input state: "${state}"`)
             }
-            
+
             custom_input_clear($custom_input)
         })
 
@@ -528,7 +583,7 @@ if (ReservationEvent.prototype.old_collectAnnotations === undefined) {
 }
 
 ReservationEvent.prototype.collectAnnotations = function() {
-    annotations = this.old_collectAnnotations()
+    let annotations = this.old_collectAnnotations()
     return annotations.map((ann) =>
         (ann.type === 'unit') ?
             (ann.annotation = parse_annotation_data(ann.annotation)[0], ann) :
@@ -881,12 +936,12 @@ parse_class_reservation = (modal) => {
         try {
             let x = el.find('.panel-title .row').first().find('.col-lg-3')
             // console.log(x)
-            let [cancel, client, price, presence] = x.toArray().map($)
+            let [_cancel, client, price, _presence] = x.toArray().map($)
             let [collapse, client2] = client.find('a').toArray().map($)
             res['client_name'] = (collapse.text())
             res['client_id'] = client2.attr('href').match(/\/clients\/c\/(\d+)\//)[1]
             res['reservation_id'] = collapse.attr('href').match(/#event-reservation-collapse-(\d+)/)[1]
-            price2 = price.find('.price').first()
+            let price2 = price.find('.price').first()
             // console.log('price', $.trim(price.text()), price)
             // console.log('price2', price2.text(), price2)
             res['reservation_price'] = (
