@@ -1,4 +1,4 @@
-// 2020.03.02-r1
+// 2020.03.02-r2
 
 _refreshPopovers = () => {
     cleanPopovers();
@@ -495,12 +495,22 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
 
 
 
+
 if (calendar.old_feedReservationCache === undefined) {
     calendar.old_feedReservationCache = calendar.feedReservationCache
 }
 
 calendar.feedReservationCache = function(data) {
-    console.log('calendar.feedReservationCache', `${data.length} items`)
+    console.log('calendar.feedReservationCache', `${typeof data}: length ${data.length}`)
+    // PATCH
+    // if the user was logged out, api calls will redirect them to the login page
+    // and data will end up being that page's HTML.
+    // unfortunately, calendar.fetchReservations does no validation at all, so it gets through.
+    if (typeof data === "string") {
+        // error - needs relog
+        messages.appendMessage(Message.createMessage('Wymagane ponowne zalogowanie. Odśwież stronę', 'critical'), true);
+        return
+    }
     return calendar.old_feedReservationCache(
         data.map((event) => {
             // watch out! freshly created events (i.e. the wizard is still open) don't have an id yet
@@ -594,7 +604,7 @@ card_count_badge_render = (state) => {
     } else if (state.type === 'error') {
         let {msg} = state
         badge = make_badge()
-        badge .text('×') .addClass('error') // .tooltip(msg)
+        badge .text('×') .addClass('error') //.tooltip({title: msg, container: 'body'})
     }
 
     return badge
@@ -637,7 +647,6 @@ fetch_event_price_info = (id) => (
                 })
             })
             return $.when(...reqs).then((...new_carnets) => (
-            // return Promise.all(reqs).then((new_carnets) => (
                 {price_list_id: price_list_id, carnets: Object.fromEntries(new_carnets)}
             ))
         }
@@ -898,17 +907,17 @@ parse_class_reservation = (modal) => {
     return modal.find('.fitnessPanel').toArray().map((el)=>parse_client($(el)))
 }
 
-function class_event_reservations(event_id) {
+class_event_reservations = (event_id) => {
     return class_event_reservations_raw(event_id).then((text) => parse_class_reservation($(text)))
 }
 
 
-function class_event_reservations_raw(event_id) {
+class_event_reservations_raw = (event_id) => {
     return $.get(`https://reservise.com/events/class_event_reservations_list/${event_id}`)
 }
 
 
-function group_by(xs, f) {
+group_by = (xs, f) => {
     let g = {}
     for (let x of xs) {
         let fx = f(x)
