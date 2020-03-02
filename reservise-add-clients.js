@@ -1,4 +1,4 @@
-// 2020.03.01-r1
+// 2020.03.02-r1
 
 _refreshPopovers = () => {
     cleanPopovers();
@@ -561,28 +561,6 @@ $(document).ready(() => {
 
 })
 
-card_count_badge = (used, required, has_carnet, carnet_ms, is_paid) => {
-    if (required === 0 && (has_carnet === false || carnet_ms === 0) && used == 0) {
-        return $(null)
-    }
-    let badge = $(`<span class="card-info-badge badge badge-pill"></span>`)
-    if (used === null || required === null || has_carnet === null || is_paid === null) {
-        badge .append(spinner_small()) .addClass('loading')
-    } else if (!is_paid && has_carnet === true) {
-        badge .text(`${carnet_ms - used}`) .addClass('carnet')
-    // } else if (required === 0 && has_carnet === true) {
-    //     badge .text() .css({backgroundColor: 'rgba(0,0,0, 0.3)'})
-    } else if (used == required) {
-        badge .text('✓') .addClass('fulfilled')
-    } else {
-        if (used > required) {
-            badge .text(`${used - required}`) .addClass('extra')
-        } else {
-            badge .text(`${required - used}`) .addClass('missing')
-        }
-    }
-    return badge
-}
 
 /*
 badge:
@@ -591,7 +569,7 @@ badge:
     error   {msg: str}
 */
 
-card_count_badge2 = (state) => {
+card_count_badge_render = (state) => {
     const make_badge = () => $(`<span class="card-info-badge badge badge-pill"></span>`)
     let badge
     if (state.type === 'loading') {
@@ -700,7 +678,7 @@ BaseReservationEvent.prototype.render = function(event, element) {
     }
     let pending_badge = (event.price_info_promise.isResolved)
         ? $('<span></span>')
-        : card_count_badge2({type: 'loading'})
+        : card_count_badge_render({type: 'loading'})
     title.append(pending_badge)
 
     event.price_info_promise.then((info) => {
@@ -726,7 +704,7 @@ BaseReservationEvent.prototype.render = function(event, element) {
                 return {type: 'ready', used: used_cards_num, required: required_cards_num, paid: is_paid}
             }  
         })()
-        let badge = card_count_badge2(badge_state)
+        let badge = card_count_badge_render(badge_state)
         pending_badge.replaceWith(badge)
         if (carnets !== null) {
             element.addClass('rsv-has-carnet')
