@@ -1,4 +1,4 @@
-// 2020.03.03-r1
+// 2020.03.03-r2
 
 /* eslint-env jquery */
 
@@ -19,7 +19,7 @@
     old_ReservationDetailsPopover
 
     _refreshPopovers
-    escapeRegExp
+    RegExp_escape
 
     parse_annotation_data
     get_annotation_data
@@ -75,14 +75,15 @@ _refreshPopovers = () => {
 }
 
 {
-    const SEPARATOR_RAW   = '---'
-    const SEPARATOR       = '\n'+SEPARATOR_RAW+'\n'
-    const SEPARATOR_REGEX =  new RegExp('^'+escapeRegExp(SEPARATOR_RAW)+'$', 'm') //  /m - each line separately
-
-    escapeRegExp = (s) => {
+    RegExp_escape = (s) => {
         return s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'); // $& means the whole matched string
         // return s.replace(/[.*+\-?\^${}()|[\]\\]/g, '\\$&');
     }
+
+    const SEPARATOR_RAW   = '---'
+    const SEPARATOR       = '\n'+SEPARATOR_RAW+'\n'
+    const SEPARATOR_REGEX =  new RegExp('^'+RegExp_escape(SEPARATOR_RAW)+'$', 'm') //  /m - each line separately
+
 
     parse_annotation_data = (ann) => {
         let val, ann_text
