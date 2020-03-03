@@ -1,4 +1,4 @@
-// 2020.03.03-r2
+// 2020.03.03-r3
 
 /* eslint-env jquery */
 
@@ -249,9 +249,9 @@ create_client = ({last_name, first_name}) => (
 // we could use this to inject some code to extract the stored data during init!
 
 $.fn.smartform.Constructor.prototype.inject_custom_data = function(_event) {
-    // console.log('SmartForm.inject_custom_data', this, event)
-    let data = this.data('get_custom_data')()
-    // console.log('found wrapper', $custom_input)
+    // console.log('SmartForm.inject_custom_data', this, _event)
+    // let data = this.$element.data('get_custom_data')()
+    let data = this.get_custom_data()
     this.inputElements().val((_i, ann) => {
         let ann_text = get_annotation_text(ann)
         let new_ann = serialize_annotation_data(ann_text, data)
@@ -617,10 +617,6 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
         let $ann_form = $ann_tag.closest('form')
         let $save_ann = $ann_form.find('[type="submit"]')
         $save_ann.attr('smartform-action', "inject_custom_data")
-        $save_ann.data('get_custom_data', () => {
-            let user_entries = self.custom_input.state.user_entries
-            return user_entries ? {users: user_entries} : null
-        })
     };
 
 
@@ -638,7 +634,11 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
             return
         }
 
-        // let ann_sf = $(popover_annotation(self)).data('bs.smartform')
+        let ann_sf = $(popover_annotation(self)).data('bs.smartform')
+        ann_sf.get_custom_data = () => {
+            let user_entries = self.custom_input.state.user_entries
+            return user_entries ? {users: user_entries} : null
+        }
         // console.log('form', ann_sf)
 
         // let $custom_input = $(popover).find('.custom-wrapper')
