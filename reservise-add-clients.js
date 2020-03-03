@@ -1,4 +1,4 @@
-// 2020.03.02-r4
+// 2020.03.03-r1
 
 /* eslint-env jquery */
 
@@ -23,7 +23,10 @@
 
     parse_annotation_data
     get_annotation_data
+    get_annotation_text
     modify_annotation_data
+    serialize_annotation_data
+
     popover_annotation
     modify_popover_annotation
     get_event_details_uninited_annotation_tag
@@ -31,6 +34,7 @@
     serialize_popover_data
     save_popover_data
     modify_popover_annotation_data
+    write_popover_data
     
     get_benefit_reservation
     create_client
@@ -70,43 +74,48 @@ _refreshPopovers = () => {
     );
 }
 
-escapeRegExp = (s) => {
-    return s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'); // $& means the whole matched string
-    // return s.replace(/[.*+\-?\^${}()|[\]\\]/g, '\\$&');
-}
-
-parse_annotation_data = (ann) => {
+{
     const SEPARATOR_RAW   = '---'
     const SEPARATOR       = '\n'+SEPARATOR_RAW+'\n'
     const SEPARATOR_REGEX =  new RegExp('^'+escapeRegExp(SEPARATOR_RAW)+'$', 'm') //  /m - each line separately
 
-    let val, ann_text
-    let match = ann.match(SEPARATOR_REGEX)
-    if (match === null) {
-        // console.log('parse_annotation_data ::', 'no separator found', ann)
-        ann_text = ann
-        val = null
-    } else {
-        // console.log('parse_annotation_data ::', 'found separator', match)
-        ann_text = ann.substring(0, match.index - 1) // before leading newline
-        let ann_val = ann.substring(match.index + match[0].length + 1) // after trailing newline
-        // console.log('parse_annotation_data ::', 'value', ann_val)
-        val = JSON.parse(ann_val)
+    escapeRegExp = (s) => {
+        return s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'); // $& means the whole matched string
+        // return s.replace(/[.*+\-?\^${}()|[\]\\]/g, '\\$&');
     }
-    return [ann_text, SEPARATOR, val]
+
+    parse_annotation_data = (ann) => {
+        let val, ann_text
+        let match = ann.match(SEPARATOR_REGEX)
+        if (match === null) {
+            // console.log('parse_annotation_data ::', 'no separator found', ann)
+            ann_text = ann
+            val = null
+        } else {
+            // console.log('parse_annotation_data ::', 'found separator', match)
+            ann_text = ann.substring(0, match.index - 1) // before leading newline
+            let ann_val = ann.substring(match.index + match[0].length + 1) // after trailing newline
+            // console.log('parse_annotation_data ::', 'value', ann_val)
+            val = JSON.parse(ann_val)
+        }
+        return [ann_text, val]
+    }
+
+    get_annotation_text = (ann) => parse_annotation_data(ann)[0]
+    get_annotation_data = (ann) => parse_annotation_data(ann)[1]
+
+    serialize_annotation_data = (ann_text, data) => (
+        ann_text + ((data === null) ? "" : (SEPARATOR + JSON.stringify(data)))
+    )
+
+    // modify_annotation_data = (ann, f) => {
+    //     const INITIAL_STATE = {}
+
+    //     let [ann_text, SEPARATOR, val] = parse_annotation_data(ann)
+    //     let val2 = f((val === null) ? INITIAL_STATE : val)
+    //     return [ann_text, SEPARATOR, JSON.stringify(val2)].join('')
+    // }
 }
-
-get_annotation_data = (ann) => parse_annotation_data(ann)[2]
-
-
-modify_annotation_data = (ann, f) => {
-    const INITIAL_STATE = {}
-
-    let [ann_text, SEPARATOR, val] = parse_annotation_data(ann)
-    let val2 = f((val === null) ? INITIAL_STATE : val)
-    return [ann_text, SEPARATOR, JSON.stringify(val2)].join('')
-}
-
 
 popover_annotation = (popover) => {
     let event_details = popover.popoverContent[0] // .event-details
@@ -156,27 +165,34 @@ get_popover_annotation = (popover) => {
     return val
 }
 
-serialize_popover_data = (popover) => {
-    let $custom_input = $(popover.popoverContent[0]).find('.custom-wrapper')
-    let data_serialized = $custom_input.attr('data-extracted')
-    let data = JSON.parse(data_serialized)
-    let [ann_text, sep, _] = parse_annotation_data(get_popover_annotation(popover))
-    return ann_text + ((data === null) ? "" : (sep + data_serialized))
+write_popover_data = (popover, data) => {
+    let old_ann = get_popover_annotation(popover)
+    let ann_text = get_annotation_text(old_ann)
+    let new_ann = serialize_annotation_data(ann_text, data)
+    modify_popover_annotation(popover, (_)=>new_ann)
 }
 
-save_popover_data = (popover) => {
-    let ann = serialize_popover_data(popover)
-    modify_popover_annotation(popover, (_) => ann)
-}
+// serialize_popover_data = (popover) => {
+//     let $custom_input = $(popover.popoverContent[0]).find('.custom-wrapper')
+//     let data_serialized = $custom_input.attr('data-extracted')
+//     let data = JSON.parse(data_serialized)
+//     let [ann_text, sep, _] = parse_annotation_data(get_popover_annotation(popover))
+//     return ann_text + ((data === null) ? "" : (sep + data_serialized))
+// }
 
-modify_popover_annotation_data = (popover, f) => {
-    let $custom_input = $(popover.popoverContent[0]).find('.custom-wrapper')
-    let data = JSON.parse($custom_input.attr('data-extracted')) || {users: []}
-    let new_data = f(data)
-    let new_data_serialized = JSON.stringify(new_data)
-    $custom_input.attr('data-extracted', new_data_serialized)
-    save_popover_data(popover)
-}
+// save_popover_data = (popover) => {
+//     let ann = serialize_popover_data(popover)
+//     modify_popover_annotation(popover, (_) => ann)
+// }
+
+// modify_popover_annotation_data = (popover, f) => {
+//     let $custom_input = $(popover.popoverContent[0]).find('.custom-wrapper')
+//     let data = JSON.parse($custom_input.attr('data-extracted')) || {users: []}
+//     let new_data = f(data)
+//     let new_data_serialized = JSON.stringify(new_data)
+//     $custom_input.attr('data-extracted', new_data_serialized)
+//     save_popover_data(popover)
+// }
 
 get_benefit_reservation = () => (
     Object.entries(calendar.reservationsById)
@@ -233,13 +249,11 @@ create_client = ({last_name, first_name}) => (
 
 $.fn.smartform.Constructor.prototype.inject_custom_data = function(_event) {
     // console.log('SmartForm.inject_custom_data', this, event)
-    let $custom_input = this.$element.closest('.event-details').find('.custom-wrapper')
+    let data = this.data('get_custom_data')()
     // console.log('found wrapper', $custom_input)
-    let data_serialized = $custom_input.attr('data-extracted')
-    let data = JSON.parse(data_serialized)
     this.inputElements().val((_i, ann) => {
-        let [ann_text, sep, _] = parse_annotation_data(ann)
-        let new_ann = ann_text + ((data === null) ? "" : (sep + data_serialized))
+        let ann_text = get_annotation_text(ann)
+        let new_ann = serialize_annotation_data(ann_text, data)
         console.log('new annotation', new_ann)
         return new_ann
     })
@@ -250,6 +264,305 @@ $.fn.smartform.Constructor.prototype.inject_custom_data = function(_event) {
 is_class_reservation  = (event) => event.client_list_url !== undefined
 is_unavailability     = (event) => event.className.includes('unavailability')
 is_single_reservation = (event) => !is_class_reservation(event) && !is_unavailability(event)
+
+
+
+
+// custom input stuff
+function CustomInput(user_entries, props) {
+    this.state = this.initial_state(user_entries)
+    this.props = props
+}
+
+(() => {
+    CustomInput.prototype.initial_state = function(user_entries) {
+        return {
+            state: 'search',
+            user: null,
+            lastname:  null,
+            firstname: null,
+            card: false,
+            user_entries: user_entries,
+        }
+    }
+
+    CustomInput.prototype.set_state = function(updates) {
+        let old_state = this.state
+        this.state = Object.assign({}, old_state, updates)
+        this.rerender()
+        if ('user_entries' in updates && !Object.is(old_state.user_entries, this.state.user_entries)) {
+            this.client_entries_render()
+            this.props.on_user_entries_change(this.state.user_entries)
+        }
+    }
+
+
+    CustomInput.prototype.rerender = function() {
+        let state = this.state.state
+        // console.log('CustomInput.rerender', state)
+        if (state === 'search') {
+            let user = this.state.user
+
+            this.elems.$search.show()
+            this.elems.$create.hide()
+
+            if (user === null) {
+                this.elems.$submit.prop('disabled', true)
+                this.elems.$clear.hide()
+            } else {
+                this.elems.$submit.prop('disabled', false)
+                this.elems.$clear.show()
+            }
+
+        } else if (state === 'create') {
+            this.elems.$search.hide()
+            this.elems.$create.show()
+
+            let lastname  = this.state.lastname
+            let firstname = this.state.firstname
+            if (!firstname || !lastname) {
+                this.elems.$submit.prop('disabled', true)
+                this.elems.$clear.hide()
+            } else {
+                this.elems.$submit.prop('disabled', false)
+                this.elems.$clear.show()
+            }
+
+        } else {
+            throw new Error(`Invalid custom_input state: "${state}"`)
+        }
+    }
+
+    CustomInput.prototype.switch_to_create = function({firstname = '', lastname = ''}) {
+        this.set_state({state: 'create', firstname: firstname, lastname: lastname})
+        this.elems.$lastname.val(lastname).focus()
+        this.elems.$firstname.val(firstname)
+        // this.elems.$create.change()
+        this.rerender()
+    }
+
+    CustomInput.prototype.clear = function() {
+        let state = this.state.state
+        // if (state === 'search') {
+            this.elems.$search.val('')
+            this.elems.$search.userProfileAutocomplete2('search', '')
+        // } else if (state === 'create') {
+            this.elems.$create.val('')
+        // } else {
+        //     throw new Error(`Invalid custom_input state: "${state}"`)
+        // }
+        this.elems.$card.prop('checked', false)
+        this.set_state(this.initial_state(this.state.user_entries))
+    }
+
+    CustomInput.prototype.render = function() {
+        let $elem = $(`
+            <div class="custom-wrapper divWrapper setPaddingLR setPaddingTB" data-extracted="null">
+                <h5 class="gray" style="margin-bottom: 5px">Gracze</h5>
+                <div class="divWrapper">
+                    <div class="custom-add-user" style="display:flex; flex-direction: row">
+                        <input class="custom-add-user-search form-control" type="text" placeholder="Nazwisko klienta lub numer telefonu" style="border-top-right-radius: 0px; border-bottom-right-radius: 0px; border-right: none;">
+                        <input class="custom-add-user-create custom-add-user-create-lastname  form-control" type="text" placeholder="Nazwisko" style="flex-basis:40%; min-width: 0; border-top-right-radius: 0px; border-bottom-right-radius: 0px; border-right: none;">
+                        <input class="custom-add-user-create custom-add-user-create-firstname form-control" type="text" placeholder="Imię"     style="flex-basis:40%; min-width: 0; border-radius: 0px;">
+                        <button class="custom-add-user-clear close" tabindex="-1" style="opacity: inherit; border-color: #e1e1e1; border-style: solid; border-width: 1px 0px;">
+                            &nbsp;×&nbsp;
+                        </button>
+                        <div style="flex-shrink: 0; padding-left: 0.5em; padding-right: 0.5em; border: 1px solid #e1e1e1; display: flex; align-items: center;">
+                            <span>MS</span>
+                            <input type="checkbox" class="custom-add-user-card" style="width: auto; margin: initial; margin-left: 5px; display: inline;">
+                        </div>
+                        <button class="custom-add-user-submit btn btn-primary" style="border-top-left-radius: 0px; border-bottom-left-radius: 0px; background: #3276b1; /*font-weight: bold;*/ padding: initial; line-height: initial; padding-left: 10px; padding-right: 10px; font-size: 23px;">+</button>
+                    </div>
+                    <ul class="custom-user-entry-list list-group" style="margin-top: 0.7em"></ul>
+                </div>
+            </div>
+        `)
+        $elem.find('.custom-user-entry-list')
+
+        this.elems = {
+            $root:   $elem,
+            $search: $elem.find('.custom-add-user-search'),
+            $create: $elem.find('.custom-add-user-create'),
+            $submit: $elem.find('.custom-add-user-submit'),
+            $clear:  $elem.find('.custom-add-user-clear'),
+            $lastname:  $elem.find('.custom-add-user-create-lastname'),
+            $firstname: $elem.find('.custom-add-user-create-firstname'),
+            $card: $elem.find('.custom-add-user-card'),
+            $user_entry_list: $elem.find('.custom-user-entry-list'),
+        }
+        this.client_entries_render()
+        this.init_handlers()
+        this.rerender()
+        return this.elems.$root
+    }
+    
+    CustomInput.prototype.client_entries_render = function() {
+        let state = this.state
+        let user_entry_list = this.elems.$user_entry_list
+        user_entry_list.empty().append(
+            _client_entries_render(state.user_entries)
+        )
+        this.client_entries_init_handlers()
+        return user_entry_list    
+    } 
+
+    const _client_entries_render = (user_entries) => ( 
+        user_entries.map((entry, i) =>
+            $('<li class="list-group-item"></li>').append(user_entry_render(entry, i))
+        )
+    )
+
+    const user_entry_render = (entry, i) => (
+        $(`
+        <div class="custom-user-entry" style="display:flex; justify-content: space-between; align-items: center;">
+            <span style="flex-basis:100%"><a href="/clients/c/${entry.user.id}/" target="blank">${entry.user.label}</a></span>
+            ${(entry.card) ? '<span class="badge" style="flex-basis: 15%;">MS</span>' : ''}
+            <button class="custom-user-entry-remove close" data-index="${i}" tabindex="-1" style="margin-left: 0.5em;">
+                &nbsp;×&nbsp;
+            </button>
+        </div>
+        `)
+    )
+
+    CustomInput.prototype.client_entries_init_handlers = function() {
+        let user_entry_list = this.elems.$user_entry_list
+        user_entry_list.find('.custom-user-entry-remove').click((event) => {
+            let index = Number(event.target.getAttribute('data-index'))
+            this.set_state({user_entries: remove_index([...this.state.user_entries], index)})
+            // this.modify_data((data) => {
+            //     data.users.splice(index, 1)
+            //     return data
+            // })
+        })
+    }
+
+    const remove_index = (xs, i) => {xs.splice(i, 1); return xs}
+    const append = (xs, x) => {xs.push(x); return xs}
+
+    const promise_pure = (x) => (new Promise((resolve)=>resolve(x)))
+
+    const title_case_word = (word) => (
+        word ? word[0].toUpperCase() + word.substr(1).toLowerCase() : word
+    )
+
+    const parse_name = (s) => {
+        let parts = s.split(' ').map(title_case_word)
+        let lastname, firstname
+        if (!parts) {
+            lastname  = ''
+            firstname = ''
+        } else if (parts.length == 1) {
+            lastname  = parts[0]
+            firstname = ''
+        } else {
+            lastname  = parts.slice(0, -1).join(' ')
+            firstname = parts[parts.length-1]
+        }
+        return [lastname, firstname]
+    }
+
+    // CustomInput.prototype.switch_to_search = function({user = null}) {
+    //     this.state.state = 'search'
+    //     this.state.user = user
+    //     this.rerender()
+    //     this.elems.$lastname.val(lastname).focus()
+    //     this.elems.$firstname.val(firstname)
+    //     this.elems.$create.change()
+    //     this.rerender()
+    // }
+
+
+    CustomInput.prototype.submit = function() {
+        let state = this.state.state
+        let user_promise, card
+        if (state === 'search') {
+            card = this.state.card
+            user_promise = promise_pure(this.state.user)
+        } else if (state === 'create') {
+            card = this.state.card
+            let lastname  = this.state.lastname
+            let firstname = this.state.firstname
+            // console.log('creating user', lastname, firstname)
+            user_promise = create_client({last_name: lastname, first_name: firstname}).then((client) => (
+                {id: client.id, label: lastname + ' ' + firstname} 
+            ))
+        } else {
+            throw new Error(`Invalid custom_input state: "${state}"`)
+        }
+
+        return user_promise.then((user) => {
+            let entry = {user: user, card: card}
+            this.set_state({user_entries: append([...this.state.user_entries], entry)})
+            // this.modify_data((data) => {
+            //     if (!('users' in data)) { data.users = [] }
+            //     data.users.push(entry)
+            //     return data
+            // })
+        })
+
+    }
+
+    CustomInput.prototype.init_handlers = function() {
+        this.elems.$search.userProfileAutocomplete2({
+            showAddClient: true,
+            // withFunds: true,
+            minLength: 4,
+            focus: (evt, ui) => {
+                let item = ui.item
+                if ('is_add_new_client' in item) {
+                    // set the input's value to the last thing searched.
+                    // if the user had to down-arrow through a few options
+                    // to choose "add new user", the input box would contain
+                    // the last thing from the select list.
+                    let search_input = $(evt.target)
+                    let search_widget = search_input.data('customUserProfileAutocomplete2')
+                    search_input.val(search_widget.term)
+                    return false
+                }
+            },
+            select: (evt, ui) => {
+                let item = ui.item
+                if ('is_add_new_client' in item) {
+                    // create new client
+                    // let search = evt.target.value
+                    let search_widget = $(evt.target).data('customUserProfileAutocomplete2')
+                    let search = search_widget.term
+                    let [lastname, firstname] = parse_name(search)
+                    this.switch_to_create({firstname: firstname, lastname: lastname})
+                    return false
+                } else {
+                    // select existing client
+                    let user = (item === null) ? null : {id: item.id, label: item.label}
+                    this.set_state({user: user})
+                }
+            }
+        })
+
+        this.elems.$lastname.change((event) => {
+            let lastname = event.target.value
+            this.set_state({lastname: lastname})
+        })
+        this.elems.$firstname.change((event) => {
+            let firstname = event.target.value
+            this.set_state({firstname: firstname})
+        })
+
+        this.elems.$card.change((event) => {
+            let has_card = event.target.checked
+            this.set_state({card: has_card})
+        })
+
+        this.elems.$submit.click(() => {
+            this.submit().then(() => this.clear())
+        })
+
+        this.elems.$clear.click(() => {
+            this.clear()
+        })
+        
+    }
+
+})()
 
 
 if (typeof old_ReservationDetailsPopover === 'undefined') {
@@ -284,43 +597,29 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
             return
         }
 
-        let $custom_input = $(`
-            <div class="custom-wrapper divWrapper setPaddingLR setPaddingTB" data-extracted="null">
-                <h5 class="gray" style="margin-bottom: 5px">Gracze</h5>
-                <div class="divWrapper">
-                    <div class="custom-add-user" style="display:flex; flex-direction: row">
-                        <input class="custom-add-user-search form-control" type="text" placeholder="Nazwisko klienta lub numer telefonu" style="border-top-right-radius: 0px; border-bottom-right-radius: 0px; border-right: none;">
-                        <input class="custom-add-user-create custom-add-user-create-lastname  form-control" type="text" placeholder="Nazwisko" style="flex-basis:40%; min-width: 0; border-top-right-radius: 0px; border-bottom-right-radius: 0px; border-right: none;">
-                        <input class="custom-add-user-create custom-add-user-create-firstname form-control" type="text" placeholder="Imię"     style="flex-basis:40%; min-width: 0; border-radius: 0px;">
-                        <button class="custom-add-user-clear close" tabindex="-1" style="opacity: inherit; border-color: #e1e1e1; border-style: solid; border-width: 1px 0px;">
-                            &nbsp;×&nbsp;
-                        </button>
-                        <div style="flex-shrink: 0; padding-left: 0.5em; padding-right: 0.5em; border: 1px solid #e1e1e1; display: flex; align-items: center;">
-                            <span>MS</span>
-                            <input type="checkbox" class="custom-add-user-card" style="width: auto; margin: initial; margin-left: 5px; display: inline;">
-                        </div>
-                        <button class="custom-add-user-submit btn btn-primary" style="border-top-left-radius: 0px; border-bottom-left-radius: 0px; background: #3276b1; /*font-weight: bold;*/ padding: initial; line-height: initial; padding-left: 10px; padding-right: 10px; font-size: 23px;">+</button>
-                    </div>
-                    <ul class="custom-user-entry-list list-group" style="margin-top: 0.7em"></ul>
-                </div>
-            </div>
-        `)
-
-        // self.$custom_input = $custom_input
-        let el = $popover.children('.tab-content')
-        el.before($custom_input)
-        // let el = $(popover.querySelector('.tab-content #popoverReservationAnnotation'))
-        // el.prepend($custom_input)
 
         let $ann_tag = $(get_event_details_uninited_annotation_tag(popover))
-        let [ann_text, _, ann_data] = parse_annotation_data($ann_tag.val())
+        let [ann_text, ann_data] = parse_annotation_data($ann_tag.val())
         $ann_tag.val(ann_text)
-        $custom_input.attr('data-extracted', JSON.stringify(ann_data))
+
+        ann_data = ann_data || {users: []}
+        let user_entries = ann_data.users
+        self.custom_input = new CustomInput(user_entries, {
+            on_user_entries_change: (user_entries) => (
+                write_popover_data(self, user_entries ? {users: user_entries} : null)
+            )
+        })
+        let el = $popover.children('.tab-content')
+        el.before(self.custom_input.render())
 
         // see inject_custom_data(...) above for explanation
         let $ann_form = $ann_tag.closest('form')
         let $save_ann = $ann_form.find('[type="submit"]')
         $save_ann.attr('smartform-action', "inject_custom_data")
+        $save_ann.data('get_custom_data', () => {
+            let user_entries = self.custom_input.state.user_entries
+            return user_entries ? {users: user_entries} : null
+        })
     };
 
 
@@ -341,216 +640,10 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
         // let ann_sf = $(popover_annotation(self)).data('bs.smartform')
         // console.log('form', ann_sf)
 
-        let $custom_input = $(popover).find('.custom-wrapper')
-        // console.log('initializing', $custom_input)
-        // console.log('extracted', JSON.parse($custom_input.attr('data-extracted')))
-
-        let custom_input_init_state = ($custom_input) => {
-            $custom_input.data('state', 'search')
-            $custom_input.data('user', null)
-            $custom_input.data('lastname',  null)
-            $custom_input.data('firstname', null)
-            $custom_input.data('card', false)
-        }
-
-        let custom_input_update = ($custom_input) => {
-            let state = $custom_input.data('state')
-            console.log('custom_input_update', state)
-            if (state === 'search') {
-                let user = $custom_input.data('user')
-
-                $custom_input.find('.custom-add-user-search').show()
-                $custom_input.find('.custom-add-user-create').hide()
-
-                if (user === null) {
-                    $custom_input.find('.custom-add-user-submit').prop('disabled', true)
-                    $custom_input.find('.custom-add-user-clear').hide()
-                } else {
-                    $custom_input.find('.custom-add-user-submit').prop('disabled', false)
-                    $custom_input.find('.custom-add-user-clear').show()
-                }
-
-            } else if (state === 'create') {
-                $custom_input.find('.custom-add-user-search').hide()
-                $custom_input.find('.custom-add-user-create').show()
-
-                let lastname  = $custom_input.data('lastname')
-                let firstname = $custom_input.data('firstname')
-                if (!firstname || !lastname) {
-                    $custom_input.find('.custom-add-user-submit').prop('disabled', true)
-                    $custom_input.find('.custom-add-user-clear').hide()
-                } else {
-                    $custom_input.find('.custom-add-user-submit').prop('disabled', false)
-                    $custom_input.find('.custom-add-user-clear').show()
-                }
-
-            } else {
-                throw new Error(`Invalid custom_input state: "${state}"`)
-            }
-        }
-
-        let custom_input_clear = ($custom_input) => {
-            let state = $custom_input.data('state')
-            if (state === 'search') {
-                $custom_input.find('.custom-add-user-search').val('').focus()
-                $custom_input.find('.custom-add-user-search').userProfileAutocomplete2('search', '')
-            } else if (state === 'create') {
-                $custom_input.find('.custom-add-user-create').val('')
-            } else {
-                throw new Error(`Invalid custom_input state: "${state}"`)
-            }
-            custom_input_init_state($custom_input)
-            custom_input_update($custom_input)
-        }
-
-        let render_user_entry = (entry, i) => (
-            $(`
-            <div class="custom-user-entry" style="display:flex; justify-content: space-between; align-items: center;">
-                <span style="flex-basis:100%"><a href="/clients/c/${entry.user.id}/" target="blank">${entry.user.label}</a></span>
-                ${(entry.card) ? '<span class="badge" style="flex-basis: 15%;">MS</span>' : ''}
-                <button class="custom-user-entry-remove close" data-index="${i}" tabindex="-1" style="margin-left: 0.5em;">
-                    &nbsp;×&nbsp;
-                </button>
-            </div>
-            `)
-        )
-
-
-        // // let ann = $(popover_annotation(popover))
-        // let ann_text = get_popover_annotation(self)
-        // console.log('popover annotation', ann_text)
-        // let data = get_annotation_data(ann_text) || {users: []}
-        let data = JSON.parse($custom_input.attr('data-extracted')) || {users: []}
-        // console.log('popover data', data)
-        $custom_input.find('.custom-user-entry-list').append(
-            data.users.map((entry, i) =>
-                $('<li class="list-group-item"></li>').append(render_user_entry(entry, i))
-            )
-        )
-        $custom_input.find('.custom-user-entry-remove').click((event) => {
-            let $clicked = $(event.target)
-            let index = $clicked.data('index')
-            modify_popover_annotation_data(self, (data)=>{
-                data.users.splice(index, 1)
-                return data
-            })
-        })
-
-
-        custom_input_init_state($custom_input)
-        custom_input_update($custom_input)
-
-        let titleCaseWord = (word) => word ? word[0].toUpperCase() + word.substr(1).toLowerCase() : word
-
-        $custom_input.find('.custom-add-user-search').userProfileAutocomplete2({
-            showAddClient: true,
-            // withFunds: true,
-            minLength: 4,
-            focus: (evt, ui) => {
-                // console.log('user autocomplete :: focus', evt, ui)
-                let item = ui.item
-                if (/*this.options.showAddClient && */'is_add_new_client' in item) {
-                    return false
-                }
-            },
-            select: (evt, ui) => {
-                // console.log('user autocomplete :: select', evt, ui)
-                let item = ui.item
-                if (item === undefined || (typeof item === 'object' && 'is_add_new_client' in item)) {
-                    // create new client
-                    let search = evt.target.value
-                    let parts = search.split(' ').map(titleCaseWord)
-                    let lastname, firstname
-                    if (!parts) {
-                        lastname  = ''
-                        firstname = ''
-                    } else if (parts.length == 1) {
-                        lastname  = parts[0]
-                        firstname = ''
-                    } else {
-                        lastname  = parts.slice(0, -1).join(' ')
-                        firstname = parts[parts.length-1]
-                    }
-                    // console.log('switching to create', lastname, firstname)
-                    $custom_input.data('state', 'create')
-                    custom_input_update($custom_input)
-                    $custom_input.find('.custom-add-user-create-lastname').val(lastname).focus()
-                    $custom_input.find('.custom-add-user-create-firstname').val(firstname)
-                    $custom_input.find('.custom-add-user-create').change()
-                    custom_input_update($custom_input)
-                    return false
-                } else {
-                    // select existing client
-                    let user = (item === null) ? null : {id: item.id, label: item.label}
-                    $custom_input.data('user', user)
-                    custom_input_update($custom_input)
-                }
-            }
-        })
-
-        $custom_input.find('.custom-add-user-create-lastname').change((event)=>{
-            // console.log('.custom-add-user-create-lastname', 'change', event)
-            $custom_input.data('lastname', event.target.value)
-            custom_input_update($custom_input)
-        })
-        $custom_input.find('.custom-add-user-create-firstname').change((event)=>{
-            // console.log('.custom-add-user-create-firstname', 'change', event)
-            $custom_input.data('firstname', event.target.value)
-            custom_input_update($custom_input)
-        })
-
-        $custom_input.find('.custom-add-user-card').change(() => {
-            let has_card = $custom_input.find('.custom-add-user-card').prop('checked')
-            $custom_input.data('card', has_card)
-            custom_input_update($custom_input)
-        })
-
-        $custom_input.find('.custom-add-user-submit').click(() => {
-            // console.log('user autocomplete :: submit', $custom_input.data('user'))
-            let state = $custom_input.data('state')
-            if (state === 'search') {
-                let user = $custom_input.data('user')
-                let card = $custom_input.data('card')
-
-                let entry = {user: user, card: card}
-
-                modify_popover_annotation_data(self, (data) => {
-                    if (!('users' in data)) { data.users = [] }
-                    data.users.push(entry)
-                    return data
-                })
-            } else if (state === 'create') {
-                let lastname  = $custom_input.data('lastname')
-                let firstname = $custom_input.data('firstname')
-                let card = $custom_input.data('card')
-
-                console.log('creating user', lastname, firstname)
-                create_client({last_name: lastname, first_name: firstname}).then((client) => {
-                    // res.success
-                    let id = client.id
-                    let entry = {user: {id: id, label: lastname + ' ' + firstname}, card: card}
-                    console.log('adding entry', entry)
-
-                    return modify_popover_annotation_data(self, (data) => {
-                        if (!('users' in data)) { data.users = [] }
-                        data.users.push(entry)
-                        return data
-                    })
-                })
-
-            } else {
-                throw new Error(`Invalid custom_input state: "${state}"`)
-            }
-
-            custom_input_clear($custom_input)
-        })
-
-        $custom_input.find('.custom-add-user-clear').click(() => {
-            // console.log('user autocomplete :: before clear', $custom_input.find('.custom-add-user-search').data('customUserProfileAutocomplete').selectedItem)
-            custom_input_clear($custom_input)
-            custom_input_update($custom_input)
-            // console.log('user autocomplete :: after clear', $custom_input.find('.custom-add-user-search').data('customUserProfileAutocomplete').selectedItem)
-        })
+        // let $custom_input = $(popover).find('.custom-wrapper')
+        // this.init_state($custom_input)
+        // this.init($custom_input)
+        // this.update($custom_input)
 
     }
 
@@ -595,7 +688,7 @@ ReservationEvent.prototype.collectAnnotations = function() {
     let annotations = this.old_collectAnnotations()
     return annotations.map((ann) =>
         (ann.type === 'unit') ?
-            (ann.annotation = parse_annotation_data(ann.annotation)[0], ann) :
+            (ann.annotation = get_annotation_text(ann.annotation), ann) :
             ann
     )
 };
