@@ -1,4 +1,4 @@
-// 2020.03.03-r3
+// 2020.03.05-r1
 
 /* eslint-env jquery */
 
@@ -118,6 +118,31 @@ _refreshPopovers = () => {
     // }
 }
 
+is_nonempty = (x) => !is_empty(x)
+
+is_empty = (x) => {
+    if (typeof x !== 'object' || x === null) { return !x }
+    if (Symbol.iterator in x) { return is_empty_iterable(x) }
+    return is_empty_object(x)
+}
+
+is_empty_object = (x) => {
+    for (let prop in x) {
+        if(x.hasOwnProperty(prop)) {
+            return false
+        }
+    }
+    return true
+}
+
+is_empty_iterable = (xs) => {
+    for (let x in xs) {
+        return false
+    }
+    return true
+}
+
+
 popover_annotation = (popover) => {
     let event_details = popover.popoverContent[0] // .event-details
     // let event_ann = event_details.querySelector('#popoverReservationAnnotation').children[0].querySelector('.smartform-enabled, .smartform-disabled, .smartform-static')
@@ -206,13 +231,37 @@ get_benefit_reservation = () => (
         )) [0][1]
 )
 
-create_client = ({last_name, first_name}) => (
+
+create_client = (client_data) => {
+    for (let param of ['last_name', 'first_name']) {
+        if (!(param in client_data)) {
+            throw new Error(`INTERNAL ERROR: Required named parameter '${param}' not present`)
+        }
+    }
+    return _create_client(client_data).then((res) => {
+        if (!(typeof res === "object" && res.success === true)) {
+            throw new Error(`Could not create user: ${JSON.stringify(client_data)}`)
+        }
+        let match = res.client_info_url.match(/\/clients\/client\/(\d+)\//)
+        if (!match) {
+            throw new Error(`INTERNAL ERROR: Could not recognize user ID from url: ${res.client_info_url}`)
+        }
+        let id = parseInt(match[1])
+        if (Number.isNaN(id)) {
+            throw new Error(`INTERNAL ERROR: User ID is not a number: ${id}`)
+        }
+
+        return {id: id}
+    })
+}
+
+_create_client = ({last_name, first_name}) => (
     $.ajax({
         type: 'GET', url: '/clients/create/client/', dataType: 'json',
     }).then((data)=> {
         let csrf = (data.html.match(/<input type='hidden' name='csrfmiddlewaretoken' value='(.+?)'/) || [null, null])[1]
         if (!csrf) {
-            throw new Error('no csrf token found' + JSON.stringify(data))
+            throw new Error('INTERNAL ERROR: no csrf token found in response: ' + JSON.stringify(data))
         }
         return $.ajax({type: 'POST', url: '/clients/create/client/',  dataType: 'json', data: {
             csrfmiddlewaretoken: csrf,
@@ -230,9 +279,7 @@ create_client = ({last_name, first_name}) => (
             zip_code: '',
             venue: venue.id, // global
         }})
-    }).then((res) => (
-        {id: Number(res.client_info_url.match(/\/clients\/client\/(\d+)\//)[1])}
-    ))
+    })
 )
 
 
@@ -318,15 +365,14 @@ function CustomInput(user_entries, props) {
         } else if (state === 'create') {
             this.elems.$search.hide()
             this.elems.$create.show()
+            this.elems.$clear.show()
 
             let lastname  = this.state.lastname
             let firstname = this.state.firstname
             if (!firstname || !lastname) {
                 this.elems.$submit.prop('disabled', true)
-                this.elems.$clear.hide()
             } else {
                 this.elems.$submit.prop('disabled', false)
-                this.elems.$clear.show()
             }
 
         } else {
@@ -447,12 +493,12 @@ function CustomInput(user_entries, props) {
     )
 
     const parse_name = (s) => {
-        let parts = s.split(' ').map(title_case_word)
+        let parts = s.trim().split(' ').map(title_case_word)
         let lastname, firstname
-        if (!parts) {
+        if (parts.length === 0) {
             lastname  = ''
             firstname = ''
-        } else if (parts.length == 1) {
+        } else if (parts.length === 1) {
             lastname  = parts[0]
             firstname = ''
         } else {
@@ -607,7 +653,7 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
         let user_entries = ann_data.users
         self.custom_input = new CustomInput(user_entries, {
             on_user_entries_change: (user_entries) => (
-                write_popover_data(self, user_entries ? {users: user_entries} : null)
+                write_popover_data(self, is_nonempty(user_entries) ? {users: user_entries} : null)
             )
         })
         let el = $popover.children('.tab-content')
@@ -637,7 +683,7 @@ ReservationDetailsPopover = function(event_id, refetch_func, attachment_func) {
         let ann_sf = $(popover_annotation(self)).data('bs.smartform')
         ann_sf.get_custom_data = () => {
             let user_entries = self.custom_input.state.user_entries
-            return user_entries ? {users: user_entries} : null
+            return is_nonempty(user_entries) ? {users: user_entries} : null
         }
         // console.log('form', ann_sf)
 
@@ -658,15 +704,33 @@ if (calendar.old_feedReservationCache === undefined) {
     calendar.old_feedReservationCache = calendar.feedReservationCache
 }
 
+
+show_error = (msg) => {
+    messages.appendMessage(
+        Message.createMessage(msg, 'danger'),
+        true
+    )
+}
+
+show_critical_error = (msg) => {
+    messages.appendMessage(
+        Message.createMessage(msg, 'critical'),
+        true
+    )
+}
+
 calendar.feedReservationCache = function(data) {
-    console.log('calendar.feedReservationCache', `${typeof data}: length ${data.length}`)
+    console.log(
+        'calendar.feedReservationCache',
+        `${data.constructor.name}, length ${data.length}`
+    )
     // PATCH
     // if the user was logged out, api calls will redirect them to the login page
     // and data will end up being that page's HTML.
     // unfortunately, calendar.fetchReservations does no validation at all, so it gets through.
     if (typeof data === "string") {
         // error - needs relog
-        messages.appendMessage(Message.createMessage('Wymagane ponowne zalogowanie. Odśwież stronę', 'critical'), true);
+        show_critical_error('Wymagane ponowne zalogowanie. Odśwież stronę');
         return
     }
     return calendar.old_feedReservationCache(
@@ -867,9 +931,7 @@ BaseReservationEvent.prototype.render = function(event, element) {
     if (event.price_info_promise === undefined) {
         event.price_info_promise = fetch_event_price_info(event.id)
     }
-    let pending_badge = (event.price_info_promise.isResolved)
-        ? $('<span></span>')
-        : card_count_badge_render({type: 'loading'})
+    let pending_badge = card_count_badge_render({type: 'loading'})
     title.append(pending_badge)
 
     event.price_info_promise.then((info) => {
