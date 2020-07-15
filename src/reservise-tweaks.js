@@ -121,19 +121,19 @@ function click_popup_present() {
 
 async function add_benefit_card() {
     console.log('add_benefit_card')
-    if (typeof calendar === 'undefined') {
+    if (window.calendar === undefined) {
         console.log("no access to `calendar` global var in window", window)
         return
     }
-    if (calendar.HAS_ADD_CLIENTS === true) {
+    if (window.calendar.HAS_ADD_CLIENTS === true) {
         let popup = find_current_popup()
         if (popup === null || !is_reservation_popover(popup)) { return }
         let custom_user_search = popup.querySelector('.custom-wrapper .custom-add-user-search')
         if (custom_user_search === null) { return }
         custom_user_search.focus()
     } else {
-        let benefit_reservation = Object.entries(calendar.reservationsById)
-            .filter(([id, r]) => (
+        let benefit_reservation = Object.entries(window.calendar.reservationsById)
+            .filter(([_id, r]) => (
                 getp(r, ['event', 'className'], []).includes('class-event') &&
                 getp(r, ['event', 'title'], '').search(/karty zniżkowe/i) !== -1 &&
                 document.contains(getp(r, ['element', 0]))
@@ -478,14 +478,14 @@ function is_liga(reservation) {
 
 async function set_liga_dorozliczenia() {
     let ligaIds = (
-        Object.entries(calendar.reservationsById)
+        Object.entries(window.calendar.reservationsById)
             .filter(([id, r]) => is_liga(r))
             .map(([id, _]) => id)
     )
     let i = 0
     for (let ligaId of ligaIds) {
         // if (i > 6) { break }
-        let eventNode = calendar.reservationsById[ligaId].element[0]
+        let eventNode = window.calendar.reservationsById[ligaId].element[0]
         console.log(ligaId, eventNode)
         hover(eventNode)
         await sleep(500)
@@ -495,7 +495,7 @@ async function set_liga_dorozliczenia() {
 
         await retryUntil((x) => notNull(x) && no_spinner(x), find_reservation_popover, "popover search")
         let details = await retryUntil((x) => defined(x) && defined(x, 'classList') && !(x.classList.contains('spinner')),
-            () => getp(calendar.reservationsById[ligaId], ['detailsPopover', 'popoverContent', 0])
+            () => getp(window.calendar.reservationsById[ligaId], ['detailsPopover', 'popoverContent', 0])
         )
 
         await edit_price(details)
@@ -509,14 +509,14 @@ async function set_liga_dorozliczenia() {
         // await retryUntil(isNull, find_price_input, "price input disappear")
         await sleep(100)
         await retryUntil(no_spinner,
-            () => getp(calendar.reservationsById[ligaId], ['detailsPopover', 'popoverContent', 0])
+            () => getp(window.calendar.reservationsById[ligaId], ['detailsPopover', 'popoverContent', 0])
         )
         await sleep(500)
 
         // i+=1
 
         // await sleep(2000)
-        let close_btn = await retryUntil(defined, () => getp(calendar.reservationsById[ligaId], ['detailsPopover', 'popoverContent', 2]))
+        let close_btn = await retryUntil(defined, () => getp(window.calendar.reservationsById[ligaId], ['detailsPopover', 'popoverContent', 2]))
         // expect_defined(close_btn, 'close_btn')
         click(close_btn)
         await retryUntil(isNull, find_reservation_popover, "popover disappear")
