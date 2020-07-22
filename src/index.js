@@ -216,8 +216,9 @@ window.calendar.feedReservationCache = function(data) {
 
 
 window.ReservationEvent.prototype.collectAnnotations = function() {
-    let annotations = ORIGINAL.ReservationEvent.collectAnnotations.call(this)
-    return annotations.map((ann) =>
+    console.log('collectAnnotations')
+    let anns = ORIGINAL.ReservationEvent.collectAnnotations.call(this)
+    return anns.map((ann) =>
         (ann.type === 'unit')
             ? (ann.annotation = annotations.get_text(ann.annotation), ann)
             : ann
