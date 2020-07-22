@@ -11,12 +11,7 @@ import * as card_count_badge from './card-count-badge'
 import * as api from './reservise-api'
 import * as ui from './reservise-ui'
 import { VENUE_PRICE_INFO } from './price-info'
-import {
-    parse_annotation_data,
-    serialize_annotation_data,
-    get_annotation_text,
-    get_annotation_data,
-} from './annotations'
+import * as annotations from './annotations'
 
 
 const popover_annotation_node = (popover) => {
@@ -52,8 +47,8 @@ const get_popover_annotation = (popover) => {
 
 const write_popover_data = (popover, data) => {
     let old_ann = get_popover_annotation(popover)
-    let ann_text = get_annotation_text(old_ann)
-    let new_ann = serialize_annotation_data(ann_text, data)
+    let ann_text = annotations.get_text(old_ann)
+    let new_ann = annotations.serialize(ann_text, data)
     modify_popover_annotation(popover, (_)=>new_ann)
 }
 
@@ -76,8 +71,8 @@ $.fn.smartform.Constructor.prototype.inject_custom_data = function(_event) {
     // let data = this.$element.data('get_custom_data')()
     let data = this.get_custom_data()
     this.inputElements().val((_i, ann) => {
-        let ann_text = get_annotation_text(ann)
-        let new_ann = serialize_annotation_data(ann_text, data)
+        let ann_text = annotations.get_text(ann)
+        let new_ann = annotations.serialize(ann_text, data)
         console.log('new annotation', new_ann)
         return new_ann
     })
@@ -134,7 +129,7 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
 
 
         let $ann_tag = $(get_event_details_uninited_annotation_node(popover))
-        let [ann_text, ann_data] = parse_annotation_data($ann_tag.val())
+        let [ann_text, ann_data] = annotations.parse($ann_tag.val())
         $ann_tag.val(ann_text)
 
         ann_data = ann_data || {}
@@ -224,7 +219,7 @@ window.ReservationEvent.prototype.collectAnnotations = function() {
     let annotations = ORIGINAL.ReservationEvent.collectAnnotations.call(this)
     return annotations.map((ann) =>
         (ann.type === 'unit')
-            ? (ann.annotation = get_annotation_text(ann.annotation), ann)
+            ? (ann.annotation = annotations.get_text(ann.annotation), ann)
             : ann
     )
 };
@@ -253,7 +248,7 @@ window.BaseReservationEvent.prototype.render = function(event, element) {
     let annotation = this.event.annotation
     let is_paid = this.event.className.includes('rsv-paid')
 
-    let ann_data = annotation ? get_annotation_data(annotation) : {users: []}
+    let ann_data = annotation ? annotations.get_data(annotation) : {users: []}
     let used_cards_num = count_cards(ann_data) || 0
 
     // should only happen in development, during reloading
@@ -322,7 +317,7 @@ export async function sync_benefit({dry_run = true}) {
     let existing_by_client = group_by(existing, (r)=>r.client_id)
     let ann_ms = Object.values(window.calendar.reservationsById)
                     .filter((r) => r !== undefined && r.event !== undefined && window.calendar.date.isSame(r.event.start, 'day'))
-                    .map((r) => get_annotation_data(r.event.annotation))
+                    .map((r) => annotations.get_data(r.event.annotation))
                     .filter((d) => d!==null && d.users.length>0)
                     .flatMap((d) =>d.users)
                     .filter((e) => e.card)
