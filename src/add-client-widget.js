@@ -236,7 +236,7 @@ CustomInput.prototype.init_handlers = function() {
     this.elems.$search.userProfileAutocomplete2({
         showAddClient: true,
         // withFunds: true,
-        minLength: 4,
+        minLength: 3,
         focus: (evt, ui) => {
             let item = ui.item
             if ('is_add_new_client' in item) {

@@ -1,3 +1,7 @@
+const RegExp_escape = (s) => {
+    return s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'); // $& means the whole matched string
+    // return s.replace(/[.*+\-?\^${}()|[\]\\]/g, '\\$&');
+}
 
 const SEPARATOR_RAW   = '---'
 const SEPARATOR       = '\n'+SEPARATOR_RAW+'\n'
@@ -29,7 +33,3 @@ export const serialize_annotation_data = (ann_text, data) => (
 )
 
 
-const RegExp_escape = (s) => {
-    return s.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&'); // $& means the whole matched string
-    // return s.replace(/[.*+\-?\^${}()|[\]\\]/g, '\\$&');
-}

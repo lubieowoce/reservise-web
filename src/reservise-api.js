@@ -8,9 +8,9 @@ export const fetch_event_price_info = (id) => (
         url: window.urlReverse('event_details'), data: { id: id },
         dataType: "json",
     }).then((data) => {
-        let [_1, price_list_id] = data.html.match(/data-price-list-id="(\d+)"/) || []
+        let [_1, price_list_id] = data.html.match(/data-price-list-id="(\d+)"/) || [null, null]
         price_list_id = (price_list_id !== null && price_list_id !== "") ? Number(price_list_id) : null
-        let [_2, carnet_raw] = data.html.match(/data-carnets="(.+?)"/) || []
+        let [_2, carnet_raw] = data.html.match(/data-carnets="(.+?)"/) || [null, null]
         let carnets = (carnet_raw !== null && carnet_raw !== '{}')
             ? JSON.parse(html_entities_decode(carnet_raw))
             : null

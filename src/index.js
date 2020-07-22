@@ -232,7 +232,7 @@ window.ReservationEvent.prototype.collectAnnotations = function() {
 
 window.BaseReservationEvent.prototype.render = function(event, element) {
     // console.log('BaseReservationEvent.render', this, event, element)
-    ORIGINAL.BaseReservationEvent.old_render.call(this, event, element)
+    ORIGINAL.BaseReservationEvent.render.call(this, event, element)
 
     if (event !== undefined && !is_single_reservation(event)) {
         // console.log('BaseReservationEvent.render :: not a single_reservation, ignoring', event)
