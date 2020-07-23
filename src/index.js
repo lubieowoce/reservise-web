@@ -6,7 +6,7 @@ import {
     group_by,
 } from './utils'
 
-import { CustomInput } from './add-client-widget'
+import { AddClientWidget } from './add-client-widget'
 import * as card_count_badge from './card-count-badge'
 import * as api from './reservise-api'
 import * as ui from './reservise-ui'
@@ -134,7 +134,7 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
 
         ann_data = ann_data || {}
         let user_entries = ann_data.users || []
-        self.custom_input = new CustomInput(user_entries, {
+        self.custom_input = new AddClientWidget(user_entries, {
             on_user_entries_change: (new_user_entries) => (
                 write_popover_data(self, is_nonempty(new_user_entries) ? {users: new_user_entries} : null)
             )
@@ -216,7 +216,6 @@ window.calendar.feedReservationCache = function(data) {
 
 
 window.ReservationEvent.prototype.collectAnnotations = function() {
-    console.log('collectAnnotations')
     let anns = ORIGINAL.ReservationEvent.collectAnnotations.call(this)
     return anns.map((ann) =>
         (ann.type === 'unit')

@@ -2,13 +2,13 @@ import { create_client } from './reservise-api'
 import { show_error } from './reservise-ui'
 
 
-export function CustomInput(user_entries, props) {
+export function AddClientWidget(user_entries, props) {
     this.state = this.initial_state(user_entries)
     this.props = props
 }
 
 
-CustomInput.prototype.initial_state = function(user_entries) {
+AddClientWidget.prototype.initial_state = function(user_entries) {
     return {
         state: 'search',
         user: null,
@@ -19,7 +19,7 @@ CustomInput.prototype.initial_state = function(user_entries) {
     }
 }
 
-CustomInput.prototype.set_state = function(updates) {
+AddClientWidget.prototype.set_state = function(updates) {
     let old_state = this.state
     this.state = Object.assign({}, old_state, updates)
     this.rerender()
@@ -30,9 +30,9 @@ CustomInput.prototype.set_state = function(updates) {
 }
 
 
-CustomInput.prototype.rerender = function() {
+AddClientWidget.prototype.rerender = function() {
     let state = this.state.state
-    // console.log('CustomInput.rerender', state)
+    // console.log('AddClientWidget.rerender', state)
     if (state === 'search') {
         let user = this.state.user
 
@@ -65,7 +65,7 @@ CustomInput.prototype.rerender = function() {
     }
 }
 
-CustomInput.prototype.switch_to_create = function({firstname = '', lastname = ''}) {
+AddClientWidget.prototype.switch_to_create = function({firstname = '', lastname = ''}) {
     this.set_state({state: 'create', firstname: firstname, lastname: lastname})
     this.elems.$lastname.val(lastname).focus()
     this.elems.$firstname.val(firstname)
@@ -73,7 +73,7 @@ CustomInput.prototype.switch_to_create = function({firstname = '', lastname = ''
     this.rerender()
 }
 
-CustomInput.prototype.clear = function() {
+AddClientWidget.prototype.clear = function() {
     // let _state = this.state.state
     // if (state === 'search') {
         this.elems.$search.val('')
@@ -87,7 +87,7 @@ CustomInput.prototype.clear = function() {
     this.set_state(this.initial_state(this.state.user_entries))
 }
 
-CustomInput.prototype.render = function() {
+AddClientWidget.prototype.render = function() {
     let $elem = $(`
         <div class="custom-wrapper divWrapper setPaddingLR setPaddingTB" data-extracted="null">
             <h5 class="gray" style="margin-bottom: 5px">Gracze</h5>
@@ -128,7 +128,7 @@ CustomInput.prototype.render = function() {
     return this.elems.$root
 }
 
-CustomInput.prototype.client_entries_render = function() {
+AddClientWidget.prototype.client_entries_render = function() {
     let state = this.state
     let user_entry_list = this.elems.$user_entry_list
     user_entry_list.empty().append(
@@ -156,7 +156,7 @@ const user_entry_render = (entry, i) => (
     `)
 )
 
-CustomInput.prototype.client_entries_init_handlers = function() {
+AddClientWidget.prototype.client_entries_init_handlers = function() {
     let user_entry_list = this.elems.$user_entry_list
     user_entry_list.find('.custom-user-entry-remove').click((event) => {
         let index = Number(event.target.getAttribute('data-index'))
@@ -193,7 +193,7 @@ const parse_name = (s) => {
     return [lastname, firstname]
 }
 
-// CustomInput.prototype.switch_to_search = function({user = null}) {
+// AddClientWidget.prototype.switch_to_search = function({user = null}) {
 //     this.state.state = 'search'
 //     this.state.user = user
 //     this.rerender()
@@ -204,7 +204,7 @@ const parse_name = (s) => {
 // }
 
 
-CustomInput.prototype.submit = function() {
+AddClientWidget.prototype.submit = function() {
     let state = this.state.state
     let user_promise, card
     if (state === 'search') {
@@ -232,7 +232,7 @@ CustomInput.prototype.submit = function() {
     )
 }
 
-CustomInput.prototype.init_handlers = function() {
+AddClientWidget.prototype.init_handlers = function() {
     this.elems.$search.userProfileAutocomplete2({
         showAddClient: true,
         // withFunds: true,
