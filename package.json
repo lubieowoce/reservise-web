@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "webpack --config webpack.config.js",
-    "start": "webpack-dev-server"
+    "start": "webpack-dev-server --env.mode=development"
   },
   "repository": {
     "type": "git",
