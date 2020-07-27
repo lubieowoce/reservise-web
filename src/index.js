@@ -12,7 +12,7 @@ import * as api from './reservise-api'
 import * as ui from './reservise-ui'
 import { VENUE_PRICE_INFO } from './price-info'
 import * as annotations from './annotations'
-import { CardList } from './card-list'
+import { CardList, style as card_list_style } from './card-list'
 
 
 const popover_annotation_node = (popover) => {
@@ -91,7 +91,7 @@ const ORIGINAL = {
     ReservationDetailsPopover: window.ReservationDetailsPopover,
     // uses closed-over window.calendar instead of `this`
     calendar_feedReservationCache: window.calendar.feedReservationCache,
-    calendar_updateFullCalendar: window.calendar.updateFullCalendar,
+    calendar_updateFullcalendar: window.calendar.updateFullcalendar,
     calendar_reservationsUpdated: window.calendar.reservationsUpdated,
     ReservationEvent: {
         collectAnnotations: window.ReservationEvent.prototype.collectAnnotations,
@@ -231,10 +231,9 @@ window.calendar.feedReservationCache = function(data) {
     )
 }
 
-
-window.calendar.updateFullCalendar = function(...args) {
-    console.log('updateFullCalendar')
-    const res = ORIGINAL.calendar_updateFullCalendar(...args)
+window.calendar.updateFullcalendar = function(...args) {
+    console.log('updateFullcalendar')
+    const res = ORIGINAL.calendar_updateFullcalendar(...args)
     add_card_list()
     return res
 }
@@ -386,9 +385,10 @@ $(document).ready(() => {
     let head = $('head')
     head.append($('<style id="card-info-badge-styles">').text(card_count_badge.style))
     head.append($('<style id="custom-styles">').text(CARNET_UNPAID_CSS))
+    head.append($('<style id="collapsible-styles">').text(card_list_style))
 
     ui.refresh_popovers()
-    // window.calendar.updateFullCalendar()
+    // window.calendar.updateFullcalendar()
     window.calendar.fetchReservations()
     window.calendar.HAS_ADD_CLIENTS = true
     $('#tasks-wrapper').before('<div id="card-list-wrapper">')
