@@ -12,6 +12,7 @@ import * as api from './reservise-api'
 import * as ui from './reservise-ui'
 import { VENUE_PRICE_INFO } from './price-info'
 import * as annotations from './annotations'
+import { CardList } from './card-list'
 
 
 const popover_annotation_node = (popover) => {
@@ -90,6 +91,8 @@ const ORIGINAL = {
     ReservationDetailsPopover: window.ReservationDetailsPopover,
     // uses closed-over window.calendar instead of `this`
     calendar_feedReservationCache: window.calendar.feedReservationCache,
+    calendar_updateFullCalendar: window.calendar.updateFullCalendar,
+    calendar_reservationsUpdated: window.calendar.reservationsUpdated,
     ReservationEvent: {
         collectAnnotations: window.ReservationEvent.prototype.collectAnnotations,
     },
@@ -187,7 +190,22 @@ const get_event_details_uninited_annotation_node = (event_details) => {
 
 
 
+const add_card_list = () => {
+    const today = window.calendar.date
+    const user_entries_with_card = (
+        Object.values(window.calendar.reservationsById)
+            .filter((r) =>
+                r !== undefined &&
+                r.event !== undefined
+                && today.isSame(r.event.start, 'day'))
+            .map((r) => annotations.get_data(r.event.annotation))
+            .filter((d) => d!==null && d.users.length>0)
+            .flatMap((d) =>d.users)
+            .filter((e) => e.card)
+    )
 
+    $('#card-list-wrapper').html(CardList(user_entries_with_card))
+}
 
 window.calendar.feedReservationCache = function(data) {
     console.log(
@@ -203,6 +221,7 @@ window.calendar.feedReservationCache = function(data) {
         ui.show_critical_error('Wymagane ponowne zalogowanie. Odśwież stronę');
         return
     }
+
     return ORIGINAL.calendar_feedReservationCache(
         data.map((event) => {
             // watch out! freshly created events (i.e. the wizard is still open) don't have an id yet
@@ -213,6 +232,19 @@ window.calendar.feedReservationCache = function(data) {
 }
 
 
+window.calendar.updateFullCalendar = function(...args) {
+    console.log('updateFullCalendar')
+    const res = ORIGINAL.calendar_updateFullCalendar(...args)
+    add_card_list()
+    return res
+}
+
+window.calendar.reservationsUpdated = function(...args) {
+    console.log('reservationsUpdated')
+    const res = ORIGINAL.calendar_reservationsUpdated(...args)
+    add_card_list()
+    return res
+}
 
 
 window.ReservationEvent.prototype.collectAnnotations = function() {
@@ -259,7 +291,7 @@ window.BaseReservationEvent.prototype.render = function(event, element) {
     title.append(pending_badge)
 
     event.price_info_promise.then((info) => {
-        console.log('fetched price info for', event.id, $(event.title).text(), '->', info)
+        // console.log('fetched price info for', event.id, $(event.title).text(), '->', info)
         let badge_state = card_count_badge.compute_state({
             used_cards_num: used_cards_num,
             is_paid: is_paid,
@@ -356,7 +388,9 @@ $(document).ready(() => {
     head.append($('<style id="custom-styles">').text(CARNET_UNPAID_CSS))
 
     ui.refresh_popovers()
-    // window.calendar.updateFullcalendar()
+    // window.calendar.updateFullCalendar()
     window.calendar.fetchReservations()
     window.calendar.HAS_ADD_CLIENTS = true
+    $('#tasks-wrapper').before('<div id="card-list-wrapper">')
+    add_card_list()
 })
