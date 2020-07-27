@@ -12,7 +12,9 @@ import * as api from './reservise-api'
 import * as ui from './reservise-ui'
 import { VENUE_PRICE_INFO } from './price-info'
 import * as annotations from './annotations'
-import { CardList, style as card_list_style } from './card-list'
+
+import { CardList } from './card-list'
+import * as card_list from './card-list'
 
 
 const popover_annotation_node = (popover) => {
@@ -204,7 +206,19 @@ const add_card_list = () => {
             .filter((e) => e.card)
     )
 
-    $('#card-list-wrapper').html(CardList(user_entries_with_card))
+    const card_list_wrapper = $('#card-list-wrapper')
+    const old_card_list = card_list_wrapper.children('.card-list')
+    const attach = (
+        old_card_list.length > 0
+            ? (el) => old_card_list.replaceWith(el)
+            : (el) => card_list_wrapper.append(el)
+    )
+    const new_card_list = CardList({
+        user_entries: user_entries_with_card,
+        className: 'sidebar-section'
+    })
+    card_list.sync({old: old_card_list, new: new_card_list})
+    attach(new_card_list)
 }
 
 window.calendar.feedReservationCache = function(data) {
@@ -385,7 +399,7 @@ $(document).ready(() => {
     let head = $('head')
     head.append($('<style id="card-info-badge-styles">').text(card_count_badge.style))
     head.append($('<style id="custom-styles">').text(CARNET_UNPAID_CSS))
-    head.append($('<style id="collapsible-styles">').text(card_list_style))
+    head.append($('<style id="collapsible-styles">').text(card_list.style))
 
     ui.refresh_popovers()
     // window.calendar.updateFullcalendar()

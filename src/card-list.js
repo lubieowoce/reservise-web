@@ -1,8 +1,8 @@
 
-export const CardList = (user_entries) => {
+export const CardList = ({user_entries, className=""}) => {
     const user_entries_with_card = user_entries.filter((entry) => entry.card)
     return (
-        $('<div class="sidebar-section card-list">').append(
+        $(`<div class="card-list ${className}">`).append(
             Collapsible({
                 collapsed_content: $(`<span>Karty zniżkowe (<strong>${user_entries_with_card.length}</strong>)</span>`),
                 content: user_entries_with_card.map(Entry),
@@ -11,6 +11,11 @@ export const CardList = (user_entries) => {
             // )
         )
     )
+}
+
+export const sync = ({old: old_card_list, new: new_card_list}) => {
+    const open = old_card_list.children('details.collapsible').attr('open') 
+    new_card_list.children('details.collapsible').attr('open', open)
 }
 
 const Entry = (entry) => $(`
