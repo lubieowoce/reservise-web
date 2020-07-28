@@ -1,6 +1,15 @@
+const noop = () => {}
 
-export const CardList = ({user_entries, className=""}) => {
+export const CardList = ({user_entries, className = "", onShowReservation = noop}) => {
     const user_entries_with_card = user_entries.filter((entry) => entry.card)
+
+    const Entry = ({event_id, user: {id, label}}) => (
+        $(`<div class="card-list-entry" style="display: flex; justify-content: space-between">`).append(
+            $(`<a href="/clients/c/${id}/" style="overflow: hidden" target="blank">${label}</a>`),
+            $(`<a href="#"><span class="glyphicon glyphicon-calendar"></span></a>`).click(() => onShowReservation(event_id)),
+        )
+    )
+
     return (
         $(`<div class="card-list ${className}">`).append(
             Collapsible({
@@ -17,12 +26,6 @@ export const sync = ({old: old_card_list, new: new_card_list}) => {
     const open = old_card_list.children('details.collapsible').attr('open') 
     new_card_list.children('details.collapsible').attr('open', open)
 }
-
-const Entry = (entry) => $(`
-    <div class="card-list-entry">
-        <a href="/clients/c/${entry.user.id}/" target="blank">${entry.user.label}</a>
-    </div>
-`)
 
 
 const Collapsible = ({collapsed_content, content}) => (

@@ -200,10 +200,16 @@ const add_card_list = () => {
                 r !== undefined &&
                 r.event !== undefined
                 && today.isSame(r.event.start, 'day'))
-            .map((r) => annotations.get_data(r.event.annotation))
-            .filter((d) => d!==null && d.users.length>0)
-            .flatMap((d) =>d.users)
-            .filter((e) => e.card)
+            .sort((ra, rb) => rb.event.start.diff(ra.event.start))
+            .flatMap((r) => {
+                const event_id = r.event.id
+                const data = annotations.get_data(r.event.annotation)
+                if (!data) { return [] }
+                return (data.users
+                    .filter((entry) => entry.card)
+                    .map((entry) => ({...entry, event_id}))
+                )
+            })
     )
 
     const card_list_wrapper = $('#card-list-wrapper')
@@ -215,11 +221,13 @@ const add_card_list = () => {
     )
     const new_card_list = CardList({
         user_entries: user_entries_with_card,
-        className: 'sidebar-section'
+        className: 'sidebar-section',
+        onShowReservation: (event_id) => window.calendar.reservationsById[event_id].showDetailsPopover()
     })
     card_list.sync({old: old_card_list, new: new_card_list})
     attach(new_card_list)
 }
+
 
 window.calendar.feedReservationCache = function(data) {
     console.log(
