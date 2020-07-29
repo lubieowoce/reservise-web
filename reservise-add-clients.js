@@ -1035,6 +1035,9 @@ VENUE_PRICE_INFO = {
     },
     82: {
         "name": "SquashCity Targówek",
+        "class_prices": {
+            benefit: 1646,
+        },
         "price_default": 1540,
         "prices": {
             null: {"cards": 0, "name": "Własna cena"},
