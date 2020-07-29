@@ -5,14 +5,15 @@
   "type": "module",
   "scripts": {
     "build": "webpack --config webpack.config.js",
-    "start": "webpack-dev-server --env.mode=development"
+    "start": "webpack-dev-server --env.mode=development",
+    "prepublish": "npm run build"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/lubieowoce/reservise-web.git"
   },
   "author": "",
-  "license": "ISC",
+  "license": "GPL-3.0",
   "bugs": {
     "url": "https://github.com/lubieowoce/reservise-web/issues"
   },
