@@ -37,12 +37,20 @@ export const add_benefit_reservation = ({client_id, benefit_res_id = null}) => {
     return add_class_reservation({client_id, event_id: benefit_res_id, price, price_list_id})
 }
 
+export const refetch_reservations = () => window.calendar.reservationsUpdated('__some__')
 
 const { Message } = window
 
 export const show_error = (msg) => {
     window.messages.appendMessage(
         Message.createMessage(msg, 'danger'),
+        true
+    )
+}
+
+export const show_success = (msg) => {
+    window.messages.appendMessage(
+        Message.createMessage(msg, 'success'),
         true
     )
 }

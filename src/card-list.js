@@ -1,12 +1,17 @@
 const noop = () => {}
 
-export const CardList = ({user_entries, className = "", onShowReservation = noop}) => {
+export const CardList = ({
+        user_entries,
+        className = "",
+        on_show_reservation = noop,
+        on_sync_cards = noop
+    }) => {
     const user_entries_with_card = user_entries.filter((entry) => entry.card)
 
     const Entry = ({event_id, user: {id, label}}) => (
-        $(`<div class="card-list-entry" style="display: flex; justify-content: space-between">`).append(
+        $(`<div class="card-list-entry" style="display: flex; justify-content: space-between;">`).append(
             $(`<a href="/clients/c/${id}/" style="overflow: hidden" target="blank">${label}</a>`),
-            $(`<a href="#"><span class="glyphicon glyphicon-calendar"></span></a>`).click(() => onShowReservation(event_id)),
+            $(`<a href="#"><span class="glyphicon glyphicon-calendar"></span></a>`).click(() => on_show_reservation(event_id)),
         )
     )
 
@@ -14,7 +19,15 @@ export const CardList = ({user_entries, className = "", onShowReservation = noop
         $(`<div class="card-list ${className}">`).append(
             Collapsible({
                 collapsed_content: $(`<span>Karty zniżkowe (<strong>${user_entries_with_card.length}</strong>)</span>`),
-                content: user_entries_with_card.map(Entry),
+                content: [
+                    $(`<div style="padding: 1em;">`).append(
+                        ...user_entries_with_card.map(Entry),
+                    ),
+                    $(`<button class="btn" style="display: block; width: 100%">
+                        <span class="glyphicon glyphicon-refresh"></span>
+                        Synchronizuj karty
+                      </button>`).click(on_sync_cards),
+                ],
             })
             // $('<div class="sidebar-section-content">').append(
             // )
@@ -75,7 +88,6 @@ details.collapsible[open] > summary::after { transform: rotate(180deg); }
 
 details.collapsible > .collapsible-content {
     width: 100%;
-    padding: 1em;
     outline: 1px solid ${RESERVISE_COLOURS.panel_border};
     background-color: rgba(0,0,0, 0.03); 
 }

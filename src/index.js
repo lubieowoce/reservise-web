@@ -222,7 +222,19 @@ const add_card_list = () => {
     const new_card_list = CardList({
         user_entries: user_entries_with_card,
         className: 'sidebar-section',
-        onShowReservation: (event_id) => window.calendar.reservationsById[event_id].showDetailsPopover()
+        on_show_reservation: (event_id) => window.calendar.reservationsById[event_id].showDetailsPopover(),
+        on_sync_cards: async () => {
+            const {success, num_added} = await sync_card_annotations_with_reservation({
+                user_entries: user_entries_with_card,
+                dry_run: false
+            })
+            if (success) {
+                ui.show_success(`Dodano ${num_added} kart zniżkowych`)
+            } else {
+                ui.show_error(`Problem z synchronizacją kart zniżkowych (dodano ${num_added})`)
+            }
+            ui.refetch_reservations()
+        },
     })
     card_list.sync({old: old_card_list, new: new_card_list})
     attach(new_card_list)
@@ -362,37 +374,41 @@ $.widget("custom.userProfileAutocomplete2", $.custom.userProfileAutocomplete, {
 
 
 
-export async function sync_benefit({dry_run = true}) {
+export async function sync_card_annotations_with_reservation({user_entries, dry_run = true}) {
     let benefit_res_id = ui.get_benefit_reservation().id
     let existing = (await api.class_event_reservations(benefit_res_id)) .filter((r) => r.status === 'active')
     console.log('before', existing)
     // return
     let existing_by_client = group_by(existing, (r)=>r.client_id)
-    let ann_ms = Object.values(window.calendar.reservationsById)
-                    .filter((r) => r !== undefined && r.event !== undefined && window.calendar.date.isSame(r.event.start, 'day'))
-                    .map((r) => annotations.get_data(r.event.annotation))
-                    .filter((d) => d!==null && d.users.length>0)
-                    .flatMap((d) =>d.users)
-                    .filter((e) => e.card)
-    console.log('from annotations', ann_ms)
+
+    // let ann_ms = Object.values(window.calendar.reservationsById)
+    //                 .filter((r) => r !== undefined && r.event !== undefined && window.calendar.date.isSame(r.event.start, 'day'))
+    //                 .map((r) => annotations.get_data(r.event.annotation))
+    //                 .filter((d) => d!==null && d.users.length>0)
+    //                 .flatMap((d) =>d.users)
+    //                 .filter((e) => e.card)
+    console.log('from annotations', user_entries)
     // return
-    let ann_ms_by_client = group_by(ann_ms, (en)=>en.user.id)
+    let ann_ms_by_client = group_by(user_entries, (en)=>en.user.id)
+    let num_added = 0
     for (let [client_id, entries] of Object.entries(ann_ms_by_client)) {
         let existing_reservations = existing_by_client[client_id] || []
         let diff = entries.length - existing_reservations.length
         let client_name = entries[0].user.label
         console.log(client_id, client_name, 'needs', diff)
-        if (dry_run) { continue }
         for (let i = 0; i < diff; i++) {
-            console.log('adding', client_name, entries[0].user.label)
-            let res = await ui.add_benefit_reservation({client_id, benefit_res_id})
-            console.log(res)
-            if (res.success === undefined || !res.success) {
-                console.log('aborting')
-                return
-            }
+            if (!dry_run) {
+                console.log('adding', client_name, entries[0].user.label)
+                let res = await ui.add_benefit_reservation({client_id, benefit_res_id})
+                console.log(res)
+                if (res.success === undefined || !res.success) {
+                    return {success: false, num_added}
+                }
+                num_added += 1
+            } 
         }
     }
+    return {success: true, num_added}
 }
 
 
