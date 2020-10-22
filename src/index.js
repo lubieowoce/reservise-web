@@ -126,7 +126,6 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
         let $popover = $(popover)
         // self.selected_price = $popover.find('[data-price-list-id]').attr('data-price-list-id')
         let event = $popover.data('event')
-        // console.log('event', event)
         if (event !== undefined && !is_single_reservation(event)) {
             // console.log('createPopoverContentFromResponse :: not a single_reservation, ignoring', event)
             return
@@ -140,6 +139,7 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
         ann_data = ann_data || {}
         let user_entries = ann_data.users || []
         self.custom_input = new AddClientWidget(user_entries, {
+            reservation_owner: reservation_owner_from_popover($popover),
             on_user_entries_change: (new_user_entries) => (
                 write_popover_data(self, is_nonempty(new_user_entries) ? {users: new_user_entries} : null)
             )
@@ -190,6 +190,49 @@ const get_event_details_uninited_annotation_node = (event_details) => {
 }
 
 
+
+const reservation_owner_from_popover = ($popover) => {
+    /*
+    Assumed html structure:
+
+    <div class="event-details">
+        ...
+        <div class="detailsHeader clearfix">
+            <div class="divWrapper setPaddingLR setPaddingTB">
+                <div class="left-div">
+                    <span class="h5">
+                        <a href="/clients/c/244335/" target="_blank">
+                            Nawrocki Adam
+                        </a>
+                    </span>
+                    <i class="glyphicon glyphicon-phone" data-toggle="tooltip" title="" data-original-title="+48602139969"> </i>
+                    <a href="mailto:a.nawros@gmail.com" target="_top">
+                        <i class="glyphicon glyphicon-envelope" data-toggle="tooltip" title="" data-original-title="a.nawros@gmail.com"></i>
+                    </a>
+                </div>
+                ...
+            </div>
+        </div>
+        ...
+    </div>
+    */
+
+    const [link] = $popover.find('.detailsHeader a[href^="/clients/c/"]').toArray()
+    if (!link) { return null }
+    const [, id = null] = link.href.match(/\/clients\/c\/(\d+)\//)
+
+    let label = link.innerText.trim()
+
+    const [phone_icon] = $popover.find('.detailsHeader .glyphicon-phone').toArray()
+    if (phone_icon) {
+        const phone = phone_icon.getAttribute('title') || phone_icon.getAttribute('data-original-title')
+        if (phone) {
+            label += ` (${phone})`
+        }
+    }
+
+    return {id, label}
+}
 
 
 const add_card_list = () => {

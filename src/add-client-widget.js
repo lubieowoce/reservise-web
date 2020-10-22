@@ -1,7 +1,6 @@
 import { create_client } from './reservise-api'
 import { show_error } from './reservise-ui'
 
-
 export function AddClientWidget(user_entries, props) {
     this.state = this.initial_state(user_entries)
     this.props = props
@@ -14,7 +13,7 @@ AddClientWidget.prototype.initial_state = function(user_entries) {
         user: null,
         lastname:  null,
         firstname: null,
-        card: false,
+        card: true,
         user_entries: user_entries,
     }
 }
@@ -88,39 +87,49 @@ AddClientWidget.prototype.clear = function() {
 }
 
 AddClientWidget.prototype.render = function() {
-    let $elem = $(`
+    const {reservation_owner} = this.props
+    const show_add_owner_button = (
+        reservation_owner &&
+        !this.state.user_entries.some(({user, card}) => card && (user.id === reservation_owner.id))
+    )
+    const $elem = $(`
         <div class="custom-wrapper divWrapper setPaddingLR setPaddingTB" data-extracted="null">
             <h5 class="gray" style="margin-bottom: 5px">Gracze</h5>
             <div class="divWrapper">
-                <div class="custom-add-user" style="display:flex; flex-direction: row">
-                    <input class="custom-add-user-search form-control" type="text" placeholder="Nazwisko klienta lub numer telefonu" style="border-top-right-radius: 0px; border-bottom-right-radius: 0px; border-right: none;">
-                    <input class="custom-add-user-create custom-add-user-create-lastname  form-control" type="text" placeholder="Nazwisko" style="flex-basis:40%; min-width: 0; border-top-right-radius: 0px; border-bottom-right-radius: 0px; border-right: none;">
-                    <input class="custom-add-user-create custom-add-user-create-firstname form-control" type="text" placeholder="Imię"     style="flex-basis:40%; min-width: 0; border-radius: 0px;">
-                    <button class="custom-add-user-clear close" tabindex="-1" style="opacity: inherit; border-color: #e1e1e1; border-style: solid; border-width: 1px 0px;">
+                <div class="custom-add-user" style="display: flex; flex-direction: row">
+                    <input class="custom-add-user__search form-control" type="text" placeholder="Nazwisko klienta lub numer telefonu" style="border-top-right-radius: 0px; border-bottom-right-radius: 0px; border-right: none;">
+                    <input class="custom-add-user__create custom-add-user__create-lastname  form-control" type="text" placeholder="Nazwisko" style="flex-basis:40%; min-width: 0; border-top-right-radius: 0px; border-bottom-right-radius: 0px; border-right: none;">
+                    <input class="custom-add-user__create custom-add-user__create-firstname form-control" type="text" placeholder="Imię"     style="flex-basis:40%; min-width: 0; border-radius: 0px;">
+                    <button class="custom-add-user__clear close" tabindex="-1" style="opacity: inherit; border-color: #e1e1e1; border-style: solid; border-width: 1px 0px;">
                         &nbsp;×&nbsp;
                     </button>
                     <div style="flex-shrink: 0; padding-left: 0.5em; padding-right: 0.5em; border: 1px solid #e1e1e1; display: flex; align-items: center;">
                         <span>MS</span>
-                        <input type="checkbox" class="custom-add-user-card" style="width: auto; margin: initial; margin-left: 5px; display: inline;">
+                        <input type="checkbox" class="custom-add-user__card" style="width: auto; margin: initial; margin-left: 5px; display: inline;">
                     </div>
-                    <button class="custom-add-user-submit btn btn-primary" style="border-top-left-radius: 0px; border-bottom-left-radius: 0px; background: #3276b1; /*font-weight: bold;*/ padding: initial; line-height: initial; padding-left: 10px; padding-right: 10px; font-size: 23px;">+</button>
+                    <button class="custom-add-user__submit btn btn-primary" style="border-top-left-radius: 0px; border-bottom-left-radius: 0px; background: #3276b1; /*font-weight: bold;*/ padding: initial; line-height: initial; padding-left: 10px; padding-right: 10px; font-size: 23px;">+</button>
                 </div>
-                <ul class="custom-user-entry-list list-group" style="margin-top: 0.7em"></ul>
+                <ul class="custom-add-user__user-entry-list list-group" style="margin-top: 0.7em; margin-bottom: 0.7em"></ul>
+                ${show_add_owner_button ? (
+                    `<button class="btn custom-add-user__add-owner" style="display: block; width: 100%; opacity: 0.6; border-color: currentColor; font-size: 0.8em;">
+                        dodaj <strong>${this.props.reservation_owner.label}</strong>
+                    </button>`
+                ) : ''}
             </div>
         </div>
     `)
-    $elem.find('.custom-user-entry-list')
 
     this.elems = {
         $root:   $elem,
-        $search: $elem.find('.custom-add-user-search'),
-        $create: $elem.find('.custom-add-user-create'),
-        $submit: $elem.find('.custom-add-user-submit'),
-        $clear:  $elem.find('.custom-add-user-clear'),
-        $lastname:  $elem.find('.custom-add-user-create-lastname'),
-        $firstname: $elem.find('.custom-add-user-create-firstname'),
-        $card: $elem.find('.custom-add-user-card'),
-        $user_entry_list: $elem.find('.custom-user-entry-list'),
+        $search: $elem.find('.custom-add-user__search'),
+        $create: $elem.find('.custom-add-user__create'),
+        $submit: $elem.find('.custom-add-user__submit'),
+        $clear:  $elem.find('.custom-add-user__clear'),
+        $lastname:  $elem.find('.custom-add-user__create-lastname'),
+        $firstname: $elem.find('.custom-add-user__create-firstname'),
+        $card: $elem.find('.custom-add-user__card'),
+        $user_entry_list: $elem.find('.custom-add-user__user-entry-list'),
+        $add_owner: $elem.find('.custom-add-user__add-owner'),
     }
     this.client_entries_render()
     this.init_handlers()
@@ -290,4 +299,11 @@ AddClientWidget.prototype.init_handlers = function() {
         this.clear()
     })
     
+    this.elems.$add_owner.click(() => {
+        if (!this.props.reservation_owner) { return }
+        let entry = {user: this.props.reservation_owner, card: true}
+        this.set_state({user_entries: append([...this.state.user_entries], entry)})
+    })
 }
+
+

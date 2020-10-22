@@ -5,28 +5,32 @@ const html_entities_decode = (s) => $("<div>").html(s).text()
 
 export const fetch_event_price_info = (id) => (
     $ajax_promise({
-        url: window.urlReverse('event_details'), data: { id: id },
+        url: '/events/event_details/', data: { id: id },
         dataType: "json",
-    }).then((data) => {
-        let [_1, price_list_id] = data.html.match(/data-price-list-id="(\d+)"/) || [null, null]
-        price_list_id = (price_list_id !== null && price_list_id !== "") ? Number(price_list_id) : null
-        let [_2, carnet_raw] = data.html.match(/data-carnets="(.+?)"/) || [null, null]
+    }).then(({html}) => {
+        let [, price_list_id = null] = html.match(/data-price-list-id="(\d+)"/) || []
+        price_list_id = (
+            (price_list_id !== null && price_list_id !== "")
+                ? Number(price_list_id)
+                : null
+        )
+        let [, carnet_raw = null] = html.match(/data-carnets="(.+?)"/) || []
         let carnets = (carnet_raw !== null && carnet_raw !== '{}')
             ? JSON.parse(html_entities_decode(carnet_raw))
             : null
         if (carnets === null) {
             return {price_list_id: price_list_id, carnets: carnets}
         } else {
-            let client_id = (data.html.match(/\/clients\/c\/(\d+)\//) || [null, null])[1]
+            let client_id = (html.match(/\/clients\/c\/(\d+)\//) || [null, null])[1]
             if (client_id === null) { throw new Error(`no client id found for event ${id}`) }
             // client_id = Number(client_id)
             let reqs = Object.entries(carnets).map(([carnet_id, carnet]) => {
                 return $ajax_promise({
-                    type: 'GET', url: `/clients/carnet/create/${client_id}/`, dataType: 'json',
+                    url: `/clients/carnet/create/${client_id}/`, dataType: 'json',
                     data: {carnet: carnet_id},
-                }).then((data) => {
+                }).then(({html: carnet_html}) => {
                     let carnet_type = (
-                        data.html.match(/<option value="(\d+)" price="[^"]+" days="[^"]+" resources="[^"]+" selected="selected">/)
+                        carnet_html.match(/<option value="(\d+)" price="[^"]+" days="[^"]+" resources="[^"]+" selected="selected">/)
                         || [null, null]
                     )[1]
                     if (carnet_type === null) {
@@ -53,7 +57,7 @@ export const class_event_reservations = (event_id) => {
 
 
 const class_event_reservations_raw = (event_id) => {
-    return $.get(`https://reservise.com/events/class_event_reservations_list/${event_id}`)
+    return $.get(`/events/class_event_reservations_list/${event_id}`)
 }
 
 const parse_class_reservation = (modal) => {
@@ -102,7 +106,7 @@ const parse_class_reservation = (modal) => {
 export const add_class_reservation = ({client_id, event_id, price_list_id, price = ''}) => {
     let add_client_url = `/events/create_class_reservation/?event_id=${event_id}`
     return $ajax_promise({type: 'GET', url: add_client_url, dataType: 'json', }).then((data) => {
-        let [_, csrf = null] = data.html.match(/<input type='hidden' name='csrfmiddlewaretoken' value='(.+?)'/) || []
+        let [, csrf = null] = data.html.match(/<input type='hidden' name='csrfmiddlewaretoken' value='(.+?)'/) || []
         if (!csrf) {
             throw new Error('no csrf token found' + JSON.stringify(data))
         }
