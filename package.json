@@ -1,12 +1,12 @@
 {
   "name": "reservise-web",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "",
   "type": "module",
   "scripts": {
     "build": "webpack --config webpack.config.js",
     "start": "webpack-dev-server --env.mode=development",
-    "prepublish": "npm run build"
+    "prepublish": "rm dist/* && npm run build"
   },
   "repository": {
     "type": "git",

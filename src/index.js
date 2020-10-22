@@ -219,7 +219,10 @@ const reservation_owner_from_popover = ($popover) => {
 
     const [link] = $popover.find('.detailsHeader a[href^="/clients/c/"]').toArray()
     if (!link) { return null }
-    const [, id = null] = link.href.match(/\/clients\/c\/(\d+)\//)
+    const [, str_id = null] = link.href.match(/\/clients\/c\/(\d+)\//)
+    if (str_id === null) { return null }
+    const id = parseInt(str_id)
+    if (isNaN(id)) { return null }
 
     let label = link.innerText.trim()
 
