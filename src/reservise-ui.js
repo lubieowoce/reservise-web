@@ -13,25 +13,27 @@ export const refresh_popovers = () => {
     );
 }
 
-export const get_benefit_reservation = () => {
+export const get_current_benefit_reservation = () => {
     const today = window.calendar.date
+    const reservations = window.calendar.reservationsById
+    return find_benefit_reservation({date: today, reservations})[0]
+}
+
+export const find_benefit_reservation = ({reservations, date}) => {
     return (
-        Object.entries(window.calendar.reservationsById)
-            .filter(([_id, r]) => (
-                r.event !== undefined &&
-                ['rsv-active', 'class-event'].every((cls) => r.event.className.includes(cls)) &&
-                r.event.title.search(/karty zniżkowe/i) !== -1 &&
-                today.isSame(r.event.start, 'day')
-                // document.contains(getp(r, ['element', 0]))
-            )) [0][1]
+        Object.values(reservations)
+            .filter(({event}) => (
+                event !== undefined &&
+                ['class-event', 'rsv-active'].every((cls) => event.className.includes(cls)) &&
+                !event.className.includes('rsv-cancelled') &&
+                event.title.search(/karty zni[zż]kowe/i) !== -1 &&
+                date.isSame(event.start, 'day')
+            ))
     )
 }
 
 
-export const add_benefit_reservation = ({client_id, benefit_res_id = null}) => {
-    if (benefit_res_id === null) {
-        benefit_res_id = get_benefit_reservation(window.calendar).id
-    }
+export const add_benefit_reservation = ({client_id, benefit_res_id}) => {
     const price = '15.00'
     const price_list_id = VENUE_PRICE_INFO[window.venue.id].class_prices.benefit
     return add_class_reservation({client_id, event_id: benefit_res_id, price, price_list_id})

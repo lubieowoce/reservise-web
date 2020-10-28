@@ -9,82 +9,26 @@ export function AddClientWidget(user_entries, props) {
 
 AddClientWidget.prototype.initial_state = function(user_entries) {
     return {
-        state: 'search',
+        mode: 'search',
         user: null,
         lastname:  null,
         firstname: null,
-        card: true,
+        card: false,
         user_entries: user_entries,
     }
 }
 
+
 AddClientWidget.prototype.set_state = function(updates) {
     let old_state = this.state
-    this.state = Object.assign({}, old_state, updates)
-    this.rerender()
+    this.state = {...old_state, ...updates}
+    this.reconcile()
     if ('user_entries' in updates && !Object.is(old_state.user_entries, this.state.user_entries)) {
         this.client_entries_render()
         this.props.on_user_entries_change(this.state.user_entries)
     }
 }
 
-
-AddClientWidget.prototype.rerender = function() {
-    let state = this.state.state
-    // console.log('AddClientWidget.rerender', state)
-    if (state === 'search') {
-        let user = this.state.user
-
-        this.elems.$search.show()
-        this.elems.$create.hide()
-
-        if (user === null) {
-            this.elems.$submit.prop('disabled', true)
-            this.elems.$clear.hide()
-        } else {
-            this.elems.$submit.prop('disabled', false)
-            this.elems.$clear.show()
-        }
-
-    } else if (state === 'create') {
-        this.elems.$search.hide()
-        this.elems.$create.show()
-        this.elems.$clear.show()
-
-        let lastname  = this.state.lastname
-        let firstname = this.state.firstname
-        if (!firstname || !lastname) {
-            this.elems.$submit.prop('disabled', true)
-        } else {
-            this.elems.$submit.prop('disabled', false)
-        }
-
-    } else {
-        throw new Error(`Invalid custom_input state: "${state}"`)
-    }
-}
-
-AddClientWidget.prototype.switch_to_create = function({firstname = '', lastname = ''}) {
-    this.set_state({state: 'create', firstname: firstname, lastname: lastname})
-    this.elems.$lastname.val(lastname).focus()
-    this.elems.$firstname.val(firstname)
-    // this.elems.$create.change()
-    this.rerender()
-}
-
-AddClientWidget.prototype.clear = function() {
-    // let _state = this.state.state
-    // if (state === 'search') {
-        this.elems.$search.val('')
-        this.elems.$search.userProfileAutocomplete2('search', '')
-    // } else if (state === 'create') {
-        this.elems.$create.val('')
-    // } else {
-    //     throw new Error(`Invalid custom_input state: "${state}"`)
-    // }
-    this.elems.$card.prop('checked', false)
-    this.set_state(this.initial_state(this.state.user_entries))
-}
 
 AddClientWidget.prototype.render = function() {
     const {reservation_owner} = this.props
@@ -112,7 +56,7 @@ AddClientWidget.prototype.render = function() {
                 <ul class="custom-add-user__user-entry-list list-group" style="margin-top: 0.7em; margin-bottom: 0.7em"></ul>
                 ${show_add_owner_button ? (
                     `<button class="btn custom-add-user__add-owner" style="display: block; width: 100%; opacity: 0.6; border-color: currentColor; font-size: 0.8em;">
-                        dodaj <strong>${this.props.reservation_owner.label}</strong>
+                        dodaj <strong>${reservation_owner.label}</strong>
                     </button>`
                 ) : ''}
             </div>
@@ -133,18 +77,169 @@ AddClientWidget.prototype.render = function() {
     }
     this.client_entries_render()
     this.init_handlers()
-    this.rerender()
+    this.reconcile()
     return this.elems.$root
 }
 
+
+AddClientWidget.prototype.init_handlers = function() {
+    this.elems.$search.userProfileAutocomplete2({
+        showAddClient: true,
+        // withFunds: true,
+        minLength: 2,
+        focus: (evt, ui) => {
+            const item = ui.item
+            if ('is_add_new_client' in item) {
+                // set the input's value to the last thing searched.
+                // if the user had to down-arrow through a few options
+                // to choose "add new user", the input box would contain
+                // the last thing from the select list.
+                const search_input = $(evt.target)
+                const search_widget = search_input.data('customUserProfileAutocomplete2')
+                search_input.val(search_widget.term)
+                return false
+            }
+        },
+        select: (evt, ui) => {
+            const item = ui.item
+            if ('is_add_new_client' in item) {
+                const search_widget = $(evt.target).data('customUserProfileAutocomplete2')
+                const search = search_widget.term
+                const [lastname, firstname] = parse_name(search)
+                this.switch_to_create({firstname: firstname, lastname: lastname})
+                return false
+            } else {
+                // select existing client
+                const user = (item === null) ? null : {id: item.id, label: item.label}
+                this.set_state({user: user})
+            }
+        }
+    })
+
+    this.elems.$lastname.change((event) => {
+        const lastname = event.target.value
+        this.set_state({lastname: lastname})
+    })
+    this.elems.$firstname.change((event) => {
+        const firstname = event.target.value
+        this.set_state({firstname: firstname})
+    })
+
+    this.elems.$card.change((event) => {
+        const has_card = event.target.checked
+        this.set_state({card: has_card})
+    })
+
+    this.elems.$submit.click(() => {
+        this.submit().then(() => this.clear())
+    })
+
+    this.elems.$clear.click(() => {
+        this.clear()
+    })
+    
+    this.elems.$add_owner.click(() => {
+        if (!this.props.reservation_owner) { return }
+        const entry = {user: this.props.reservation_owner, card: true}
+        this.set_state({user_entries: append([...this.state.user_entries], entry)})
+    })
+}
+
+
+AddClientWidget.prototype.reconcile = function() {
+    const {mode, card} = this.state
+    this.elems.$card.prop('checked', card)
+    if (mode === 'search') {
+        const {user} = this.state
+
+        this.elems.$search.show()
+        this.elems.$create.hide()
+
+        if (user === null) {
+            this.elems.$submit.prop('disabled', true)
+            this.elems.$clear.hide()
+        } else {
+            this.elems.$submit.prop('disabled', false)
+            this.elems.$clear.show()
+        }
+
+    } else if (mode === 'create') {
+        this.elems.$search.hide()
+        this.elems.$create.show()
+        this.elems.$clear.show()
+
+        const {lastname, firstname} = this.state
+        if (!firstname || !lastname) {
+            this.elems.$submit.prop('disabled', true)
+        } else {
+            this.elems.$submit.prop('disabled', false)
+        }
+
+    } else {
+        throw new Error(`Invalid custom_input mode: "${mode}"`)
+    }
+}
+
+
+AddClientWidget.prototype.switch_to_create = function({firstname = '', lastname = ''}) {
+    this.set_state({mode: 'create', firstname: firstname, lastname: lastname})
+    this.elems.$lastname.val(lastname).focus()
+    this.elems.$firstname.val(firstname)
+    this.reconcile()
+}
+
+AddClientWidget.prototype.clear = function() {
+    this.elems.$search.val('')
+    this.elems.$search.userProfileAutocomplete2('search', '')
+    this.elems.$create.val('')
+    this.set_state(this.initial_state(this.state.user_entries))
+}
+
+AddClientWidget.prototype.submit = function() {
+    const {mode} = this.state
+    let user_promise, card
+    if (mode === 'search') {
+        card = this.state.card
+        user_promise = promise_pure(this.state.user)
+    } else if (mode === 'create') {
+        card = this.state.card
+        const {lastname, firstname} = this.state
+        user_promise = create_client({last_name: lastname, first_name: firstname}).then((client) => (
+            {id: client.id, label: lastname + ' ' + firstname} 
+        ))
+    } else {
+        throw new Error(`Invalid custom_input mode: "${mode}"`)
+    }
+
+    return (
+        user_promise
+            .then((user) => {
+                const entry = {user, card}
+                this.set_state({user_entries: append([...this.state.user_entries], entry)})
+            })
+            .catch((err) => {
+                const msg = (
+                    typeof err === 'object' && err.message !== undefined
+                        ? err.message
+                        : 'Unknown error'
+                )
+                console.error('Error submitting user', this.state, err)
+                show_error(msg)
+            })
+    )
+}
+
+
+
+
 AddClientWidget.prototype.client_entries_render = function() {
-    let state = this.state
-    let user_entry_list = this.elems.$user_entry_list
+    const {user_entries} = this.state
+    const user_entry_list = this.elems.$user_entry_list
     user_entry_list.empty().append(
-        client_entries_render(state.user_entries)
+        client_entries_render(user_entries)
     )
     this.client_entries_init_handlers()
-    return user_entry_list    
+    return user_entry_list
 } 
 
 const client_entries_render = (user_entries) => ( 
@@ -153,11 +248,11 @@ const client_entries_render = (user_entries) => (
     )
 )
 
-const user_entry_render = (entry, i) => (
+const user_entry_render = ({user, card}, i) => (
     $(`
     <div class="custom-user-entry" style="display:flex; justify-content: space-between; align-items: center;">
-        <span style="flex-basis:100%"><a href="/clients/c/${entry.user.id}/" target="blank">${entry.user.label}</a></span>
-        ${(entry.card) ? '<span class="badge" style="flex-basis: 15%;">MS</span>' : ''}
+        <span style="flex-basis:100%"><a href="/clients/c/${user.id}/" target="blank">${user.label}</a></span>
+        ${(card) ? '<span class="badge" style="flex-basis: 15%;">MS</span>' : ''}
         <button class="custom-user-entry-remove close" data-index="${i}" tabindex="-1" style="margin-left: 0.5em;">
             &nbsp;×&nbsp;
         </button>
@@ -166,14 +261,10 @@ const user_entry_render = (entry, i) => (
 )
 
 AddClientWidget.prototype.client_entries_init_handlers = function() {
-    let user_entry_list = this.elems.$user_entry_list
+    const user_entry_list = this.elems.$user_entry_list
     user_entry_list.find('.custom-user-entry-remove').click((event) => {
-        let index = Number(event.target.getAttribute('data-index'))
+        const index = Number(event.target.getAttribute('data-index'))
         this.set_state({user_entries: remove_index([...this.state.user_entries], index)})
-        // this.modify_data((data) => {
-        //     data.users.splice(index, 1)
-        //     return data
-        // })
     })
 }
 
@@ -187,7 +278,7 @@ const title_case_word = (word) => (
 )
 
 const parse_name = (s) => {
-    let parts = s.trim().split(' ').map(title_case_word)
+    const parts = s.trim().split(' ').map(title_case_word)
     let lastname, firstname
     if (parts.length === 0) {
         lastname  = ''
@@ -202,108 +293,10 @@ const parse_name = (s) => {
     return [lastname, firstname]
 }
 
-// AddClientWidget.prototype.switch_to_search = function({user = null}) {
-//     this.state.state = 'search'
-//     this.state.user = user
-//     this.rerender()
-//     this.elems.$lastname.val(lastname).focus()
-//     this.elems.$firstname.val(firstname)
-//     this.elems.$create.change()
-//     this.rerender()
-// }
 
 
-AddClientWidget.prototype.submit = function() {
-    let state = this.state.state
-    let user_promise, card
-    if (state === 'search') {
-        card = this.state.card
-        user_promise = promise_pure(this.state.user)
-    } else if (state === 'create') {
-        card = this.state.card
-        let lastname  = this.state.lastname
-        let firstname = this.state.firstname
-        // console.log('creating user', lastname, firstname)
-        user_promise = create_client({last_name: lastname, first_name: firstname}).then((client) => (
-            {id: client.id, label: lastname + ' ' + firstname} 
-        ))
-    } else {
-        throw new Error(`Invalid custom_input state: "${state}"`)
-    }
 
-    return (
-        user_promise
-            .then((user) => {
-                let entry = {user: user, card: card}
-                this.set_state({user_entries: append([...this.state.user_entries], entry)})
-            })
-            .catch((err) => show_error(err.message))
-    )
-}
 
-AddClientWidget.prototype.init_handlers = function() {
-    this.elems.$search.userProfileAutocomplete2({
-        showAddClient: true,
-        // withFunds: true,
-        minLength: 3,
-        focus: (evt, ui) => {
-            let item = ui.item
-            if ('is_add_new_client' in item) {
-                // set the input's value to the last thing searched.
-                // if the user had to down-arrow through a few options
-                // to choose "add new user", the input box would contain
-                // the last thing from the select list.
-                let search_input = $(evt.target)
-                let search_widget = search_input.data('customUserProfileAutocomplete2')
-                search_input.val(search_widget.term)
-                return false
-            }
-        },
-        select: (evt, ui) => {
-            let item = ui.item
-            if ('is_add_new_client' in item) {
-                // create new client
-                // let search = evt.target.value
-                let search_widget = $(evt.target).data('customUserProfileAutocomplete2')
-                let search = search_widget.term
-                let [lastname, firstname] = parse_name(search)
-                this.switch_to_create({firstname: firstname, lastname: lastname})
-                return false
-            } else {
-                // select existing client
-                let user = (item === null) ? null : {id: item.id, label: item.label}
-                this.set_state({user: user})
-            }
-        }
-    })
 
-    this.elems.$lastname.change((event) => {
-        let lastname = event.target.value
-        this.set_state({lastname: lastname})
-    })
-    this.elems.$firstname.change((event) => {
-        let firstname = event.target.value
-        this.set_state({firstname: firstname})
-    })
-
-    this.elems.$card.change((event) => {
-        let has_card = event.target.checked
-        this.set_state({card: has_card})
-    })
-
-    this.elems.$submit.click(() => {
-        this.submit().then(() => this.clear())
-    })
-
-    this.elems.$clear.click(() => {
-        this.clear()
-    })
-    
-    this.elems.$add_owner.click(() => {
-        if (!this.props.reservation_owner) { return }
-        let entry = {user: this.props.reservation_owner, card: true}
-        this.set_state({user_entries: append([...this.state.user_entries], entry)})
-    })
-}
 
 
