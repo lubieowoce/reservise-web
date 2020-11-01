@@ -1,4 +1,8 @@
 // 2020.03.05-r1
+import { uniqBy, noop } from 'lodash'
+import React from 'react'
+import ReactDOM from 'react-dom'
+import { GameResults } from './game-results-widget'
 
 import {
     is_nonempty,
@@ -6,7 +10,7 @@ import {
     group_by,
 } from './utils'
 
-import { AddClientWidget } from './add-client-widget'
+import { AddClient, style as addClientStyle } from './add-client-widget'
 import * as card_count_badge from './card-count-badge'
 import * as api from './reservise-api'
 import * as ui from './reservise-ui'
@@ -122,34 +126,71 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
     self.createPopoverContentFromResponse = function(data) {
         // console.log('createPopoverContentFromResponse', self)
         self.old_createPopoverContentFromResponse(data)
-        let popover  = self.popoverContent[0]
-        let $popover = $(popover)
+        const popover  = self.popoverContent[0]
+        const $popover = $(popover)
         // self.selected_price = $popover.find('[data-price-list-id]').attr('data-price-list-id')
-        let event = $popover.data('event')
+        const event = $popover.data('event')
         if (event !== undefined && !is_single_reservation(event)) {
             // console.log('createPopoverContentFromResponse :: not a single_reservation, ignoring', event)
             return
         }
 
 
-        let $ann_tag = $(get_event_details_uninited_annotation_node(popover))
+        const $ann_tag = $(get_event_details_uninited_annotation_node(popover))
         let [ann_text, ann_data] = annotations.parse($ann_tag.val())
         $ann_tag.val(ann_text)
 
+        const reservation_owner = reservation_owner_from_popover($popover)
+
         ann_data = ann_data || {}
-        let user_entries = ann_data.users || []
-        self.custom_input = new AddClientWidget(user_entries, {
-            reservation_owner: reservation_owner_from_popover($popover),
-            on_user_entries_change: (new_user_entries) => (
-                write_popover_data(self, is_nonempty(new_user_entries) ? {users: new_user_entries} : null)
+        let {users: user_entries = [], game_results = []} = ann_data
+
+        self.get_custom_data = () => ({user_entries})
+
+        const $tab_content = $popover.children('.tab-content')
+
+        // CLIENT INPUT
+        
+        const $client_input = $('<div>')
+        const $results_input = $('<div>')
+        $tab_content.before($client_input)
+        $tab_content.before($results_input)
+
+        const render_react_inputs = () => {
+            ReactDOM.render(
+                <AddClient
+                    user_entries={user_entries}
+                    reservation_owner={reservation_owner}
+                    onChange={(new_user_entries) => {
+                        user_entries = new_user_entries
+                        console.info('rerendering AddClient', user_entries)
+                        setTimeout(render_react_inputs, 0)
+                        // write_popover_data(self, is_nonempty(new_user_entries) ? {...ann_data, users: new_user_entries} : null)
+                    }}
+                />,
+                $client_input[0]
             )
-        })
-        let el = $popover.children('.tab-content')
-        el.before(self.custom_input.render())
+
+            ReactDOM.render(
+                <GameResults
+                    game_results={game_results}
+                    users={uniqBy([reservation_owner, ...user_entries.map(({user}) => ({...user, id: parseInt(user.id)}))], 'id')}
+                    onChange={(new_results) => {
+                        game_results = new_results
+                        setTimeout(render_react_inputs, 0)
+                    }}
+                />,
+                $results_input[0]
+            )
+        }
+
+        render_react_inputs()
+
+
 
         // see inject_custom_data(...) above for explanation
-        let $ann_form = $ann_tag.closest('form')
-        let $save_ann = $ann_form.find('[type="submit"]')
+        const $ann_form = $ann_tag.closest('form')
+        const $save_ann = $ann_form.find('[type="submit"]')
         $save_ann.attr('smartform-action', "inject_custom_data")
     };
 
@@ -170,16 +211,9 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
 
         let ann_sf = $(popover_annotation_node(self)).data('bs.smartform')
         ann_sf.get_custom_data = () => {
-            let user_entries = self.custom_input.state.user_entries
+            let {user_entries} = self.get_custom_data()
             return is_nonempty(user_entries) ? {users: user_entries} : null
         }
-        // console.log('form', ann_sf)
-
-        // let $custom_input = $(popover).find('.custom-wrapper')
-        // this.init_state($custom_input)
-        // this.init($custom_input)
-        // this.update($custom_input)
-
     }
 
     return self
@@ -408,28 +442,6 @@ const count_cards = (ann_data) => {
 
 
 
-$.widget("custom.userProfileAutocomplete2", $.custom.userProfileAutocomplete, {
-    _renderMenu: function(ul, items) {
-        if (this.options.showAddClient) {
-            items.push({is_add_new_client: null, label: '', value: ''})
-        }
-        ul.addClass('user-profile-autocomplete-menu');
-        $.ui.autocomplete.prototype._renderMenu.call(this, ul, items);
-    },
-    _renderItem: function(ul, item) {
-        if (this.options.showAddClient && 'is_add_new_client' in item) {
-            let el = window.ich.autocompleteAddNewClient()
-            ul.append(el);
-            return el
-        } else {
-            return $.ui.autocomplete.prototype._renderItem.call(this, ul, item)
-        }
-    },
-});
-
-
-
-
 export async function sync_card_annotations_with_reservation({user_entries, dry_run = true}) {
     const benefit_res = ui.get_current_benefit_reservation()
     console.log('benefit reservation', benefit_res)
@@ -484,6 +496,7 @@ $(document).ready(() => {
     head.append($('<style id="card-info-badge-styles">').text(card_count_badge.style))
     head.append($('<style id="custom-styles">').text(CARNET_UNPAID_CSS))
     head.append($('<style id="collapsible-styles">').text(card_list.style))
+    head.append($('<style id="add-client-styles">').text(AddClient.style))
 
     ui.refresh_popovers()
     // window.calendar.updateFullcalendar()

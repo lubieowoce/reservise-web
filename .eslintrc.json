@@ -5,15 +5,27 @@
         "jquery": true
     },
     "extends": "eslint:recommended",
-    "globals": {
-        "Atomics": "readonly",
-        "SharedArrayBuffer": "readonly"
-    },
     "parserOptions": {
+        "ecmaVersion": 2018,
         "sourceType": "module",
-        "ecmaVersion": 2018
+        "ecmaFeatures": {
+            "jsx": true
+        }
     },
     "rules": {
-        "no-unused-vars": ["warn", { "varsIgnorePattern": "^_", "argsIgnorePattern": "^_" }]
+        "no-implicit-globals": "error",
+        "no-unused-vars": [
+            "warn", {
+                "varsIgnorePattern": "^_",
+                "argsIgnorePattern": "^_"
+            }
+        ],
+        "prettier/prettier": ["off"],
+        "no-duplicate-imports": "off",
+        "object-shorthand": "off",
+        "no-nested-ternary": "off",
+        "no-shadow": "warn",
+        "no-undef-init": "warn",
+        "no-console": "warn"
     }
 }
