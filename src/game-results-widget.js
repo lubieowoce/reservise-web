@@ -1,4 +1,4 @@
-import React, {useState} from 'react'
+import React, {useState, Fragment} from 'react'
 
 import { sortBy, keyBy } from 'lodash'
 import {
@@ -30,6 +30,10 @@ export const GameResults = ({game_results, users, onChange}) => {
 		set_modified_results(modified_results.set(ids, result))
 	}
 
+	const revert_results = () => {
+		set_modified_results(IMap())
+	}
+
 	const save_results = () => {
 		if (!did_change) { return }
 		const results2 = results_to_JS(game_results.merge(modified_results).filter((r) => r))
@@ -46,7 +50,6 @@ export const GameResults = ({game_results, users, onChange}) => {
 			}}
 		>
 			{[...all_results.entries()].map(([ids, score]) => {
-				console.log('result entry', ids.toJS(), score)
 				const [id1, id2] = ids.toJS()
 				const user1 = users_by_id[id1]
 				const user2 = users_by_id[id2]
@@ -57,7 +60,12 @@ export const GameResults = ({game_results, users, onChange}) => {
 						<input
 							className="form-control"
 							type="text"
-							style={{flexBasis: '20%', minWidth: '4ch'}}
+							style={{
+								flexBasis: '20%',
+								minWidth: '4ch',
+								fontWeight: modified_results.has(ids) ? 'bold' : 'normal',
+								fontFamily: 'monospace'
+							}}
 							value={score || ''}
 							onChange={({target: {value: new_score}}) => {
 								modify_result(ids, new_score)
@@ -66,9 +74,12 @@ export const GameResults = ({game_results, users, onChange}) => {
 					</div>
 				)
 			})}
-			{did_change &&
-				<input className="btn btn-green" type="submit" value="zapisz"/>
-			}
+			{did_change && (
+				<Fragment>
+					<input className="btn btn-green" type="submit" value="Zapisz"/>
+					<button className="btn btn-link" onClick={revert_results}>Anuluj</button>
+				</Fragment>
+			)}
 		</form>
 	)
 }

@@ -12,6 +12,7 @@ import React, {
 const initial_state = () => {
     return {
         mode: 'search',
+        search: '',
         user: null,
         lastname:  null,
         firstname: null,
@@ -20,16 +21,12 @@ const initial_state = () => {
 }
 
 export const AddClient = ({user_entries, reservation_owner, onChange}) => {
-    const [state, _set_state] = useState(initial_state())
+    const [state, setState] = useState(initial_state())
+
     console.info('AddClient', state)
 
-    const set_state = (new_state) => {
-        console.info('set_state', state, new_state)
-        _set_state(new_state)
-    }
-
     const on_clear = () => {
-        set_state(initial_state())
+        setState(initial_state())
     }
 
     const on_submit = () => {
@@ -53,8 +50,8 @@ export const AddClient = ({user_entries, reservation_owner, onChange}) => {
                 .then((user) => {
                     const entry = {user, card}
                     const new_user_entries = append([...user_entries], entry)
-                    // set_state({...state, user_entries: new_user_entries})
                     onChange(new_user_entries)
+                    setState(initial_state())
                 })
                 .catch((err) => {
                     const msg = (
@@ -72,7 +69,6 @@ export const AddClient = ({user_entries, reservation_owner, onChange}) => {
         if (!reservation_owner) { return }
         const entry = {user: reservation_owner, card: true}
         const new_user_entries = append([...user_entries], entry)
-        // set_state({...state, user_entries: new_user_entries})
         onChange(new_user_entries)
     }
 
@@ -97,20 +93,16 @@ export const AddClient = ({user_entries, reservation_owner, onChange}) => {
             <div className="divWrapper">
                 <div style={{display: 'flex'}}>
                     {state.mode === 'search' && (
-                        // ReserviseClientPicker = ({onSelect, ...props})
-                            // onCreateNew={(search_term) => {
-                            //     const [lastname, firstname] = parse_name(search_term)
-                            //     set_state({...state, mode: 'create', firstname, lastname})
-                            //     // todo: focus input
-                            // }}
                         <ReserviseClientPicker
+                            search={state.search}
+                            onSearchChanged={(search) => setState({...state, search})}
                             onSelect={(user) => {
+                                const name = `${user.last_name} ${user.first_name}`
                                 user = user && {id: user.id, label: user.label}
-                                set_state({...state, user})
+                                setState({...state, user, search: name})
                             }}
                             className="form-control"
                             placeholder="Nazwisko klienta lub numer telefonu"
-                            // {renderSuggestionsContainer}
                             style={{
                                 borderTopRightRadius: '0px',
                                 borderBottomRightRadius: '0px',
@@ -124,7 +116,7 @@ export const AddClient = ({user_entries, reservation_owner, onChange}) => {
                             type="text"
                             value={state.lastname}
                             className="form-control"
-                            onChange={({target: {value}}) => set_state({...state, lastname: value})}
+                            onChange={({target: {value}}) => setState({...state, lastname: value})}
                             placeholder="Nazwisko"
                             style={{
                                 flexBasis: '40%',
@@ -138,7 +130,7 @@ export const AddClient = ({user_entries, reservation_owner, onChange}) => {
                             type="text"
                             value={state.firstname}
                             className="form-control"
-                            onChange={({target: {value}}) => set_state({...state, firstname: value})}
+                            onChange={({target: {value}}) => setState({...state, firstname: value})}
                             placeholder="Imię"
                             style={{
                                 flexBasis: '40%',
@@ -175,7 +167,7 @@ export const AddClient = ({user_entries, reservation_owner, onChange}) => {
                         <input
                             type="checkbox"
                             checked={state.card}
-                            onChange={({target: {checked}}) => set_state({...state, card: checked})}
+                            onChange={({target: {checked}}) => setState({...state, card: checked})}
                             style={{
                                 width: 'auto',
                                 margin: 'initial',
@@ -206,7 +198,7 @@ export const AddClient = ({user_entries, reservation_owner, onChange}) => {
                     user_entries={user_entries}
                     onRemoveEntry={(index) => {
                         const new_user_entries = remove_index([...user_entries], index)
-                        // set_state({...state, user_entries: new_user_entries})
+                        // setState({...state, user_entries: new_user_entries})
                         onChange(new_user_entries)
                     }}
                 />
@@ -344,6 +336,7 @@ AddClient.style = `
     .react-autosuggest__suggestion {
         width: 100%;
         padding: 0.8em;
+        font-size: 0.9em;
     }
     .react-autosuggest__suggestion--first {}
     .react-autosuggest__suggestion--highlighted {
@@ -353,8 +346,7 @@ AddClient.style = `
 
 ` 
 
-const ReserviseClientPicker = ({onSelect, delay=300, ...props}) => {
-    const [search, setSearch] = useState('')
+const ReserviseClientPicker = ({search, onSearchChanged, onSelect, delay=300, ...props}) => {
     const [request, setRequest] = useState({state: 'done'})
     const [suggestions, setSuggestions] = useState([])
 
@@ -372,12 +364,13 @@ const ReserviseClientPicker = ({onSelect, delay=300, ...props}) => {
 
         return [req, cancel]
     }
-    
+
     return (
         <Autosuggest
             suggestions={suggestions}
             // Autosuggest will call this function every time you need to update suggestions.
             onSuggestionsFetchRequested={({value: search}) => {
+                if (!search) { return }
                 if (request.state === 'waiting') {
                     clearTimeout(request.token)
                 }
@@ -409,13 +402,14 @@ const ReserviseClientPicker = ({onSelect, delay=300, ...props}) => {
             getSuggestionValue={(item) => `${item.last_name} ${item.first_name}`}
             renderSuggestion={(item, {query, isHighlighted}) => <div>{item.label}</div>}
             onSuggestionSelected={(event, {suggestion, suggestionValue, suggestionIndex, sectionIndex, method}) => {
+                // onSearchChanged(suggestionValue)
                 onSelect(suggestion)
             }}
 
             // Autosuggest will pass through all these props to the input.
             inputProps={{
                 value: search,
-                onChange: (event, {newValue: newSearch}) => setSearch(newSearch),
+                onChange: (event, {newValue: newSearch}) => onSearchChanged(newSearch),
                 ...props,
             }}
         />
