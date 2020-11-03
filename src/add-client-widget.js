@@ -1,12 +1,14 @@
-import { create_client } from './reservise-api'
-import { show_error } from './reservise-ui'
-import Autosuggest from 'react-autosuggest';
-
-
 import React, {
-    useState,
+    useState, useEffect, useRef,
     Fragment,
 } from 'react'
+import Autosuggest from 'react-autosuggest';
+import { noop } from 'lodash'
+
+import { create_client } from './reservise-api'
+import { show_error } from './reservise-ui'
+
+
 
 
 
@@ -22,6 +24,12 @@ export const AddClient = ({user_entries, reservation_owner, onChange}) => {
 
     const onRemoveEntry = (index) => {
         const new_user_entries = remove_index([...user_entries], index)
+        onChange(new_user_entries)
+    }
+
+    const onModifyEntry = (index, entry) => {
+        const new_user_entries = [...user_entries]
+        new_user_entries[index] = entry
         onChange(new_user_entries)
     }
 
@@ -43,11 +51,15 @@ export const AddClient = ({user_entries, reservation_owner, onChange}) => {
                     user={editorState.user}
                     hasCard={editorState.hasCard}
                     onChange={(update) => setEditorState({...editorState, ...update})}
-                    onSubmit={(entry) => {onAddEntry(entry); setEditorState({user: null, hasCard: false})}}
+                    onSubmit={(entry) => {
+                        onAddEntry({user: entry.user, card: entry.hasCard})
+                        setEditorState({user: null, hasCard: false})}
+                    }
                 />
                <ClientEntryList
                     user_entries={user_entries}
                     onRemoveEntry={onRemoveEntry}
+                    onModifyEntry={onModifyEntry}
                 />
                 {show_add_owner && (
                     <button
@@ -74,108 +86,193 @@ export const AddClient = ({user_entries, reservation_owner, onChange}) => {
 
 
 
-const ClientEntryList = ({user_entries, onRemoveEntry}) => {
+const ClientEntryList = ({user_entries, onModifyEntry, onRemoveEntry}) => {
+    const [editEntry, setEditEntry] = useState(null)
+    const [editorState, setEditorState] = useState(null)
+
     return (
         <ul
             className="list-group"
             style={{marginTop: '0.7em', marginBottom: '0.7em'}}
         >
-            {user_entries.map(({user: {id, label}, card}, i) =>
-                <li className="list-group-item" key={`${id}-${i}`}>
-                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                        <span style={{flexBasis: '100%'}}>
-                            <a href={`/clients/c/${id}/`} target="blank">{label}</a>
-                        </span>
-                        {card && <span className="badge" style={{flexBasis: '15%'}}>MS</span>}
-                        <button
-                            className="close"
-                            tabIndex="-1"
-                            style={{marginLeft: '0.5em'}}
-                            onClick={() => onRemoveEntry(i)}
-                        >
-                            &nbsp;×&nbsp;
-                        </button>
-                    </div>
+            {user_entries.map(({user: {id, label}, card}, i) => {
+                const isEdited = (i === editEntry && editorState)
+                return <li className="list-group-item" key={`${id}-${i}`} style={isEdited ? {padding: '0'} : {}}>
+                    {(isEdited)
+                        ? <InlineClientEntryEditor
+                            user={editorState.user}
+                            hasCard={editorState.hasCard}
+                            onChange={(update) => setEditorState({...editorState, ...update})}
+                            onSubmit={(entry) => {
+                                setEditEntry(null)
+                                setEditorState(null)
+                                onModifyEntry(i, {user: entry.user, card: entry.hasCard})
+                            }}
+                            onCancel={() => {
+                                setEditEntry(null)
+                                setEditorState(null)
+                            }}
+                        />
+                        : (
+                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                                <span style={{flexBasis: '100%'}}>
+                                    <a href={`/clients/c/${id}/`} target="blank">{label}</a>
+                                </span>
+                                {card && <span className="badge" style={{flexBasis: '15%'}}>MS</span>}
+                                <button
+                                    className="close"
+                                    tabIndex="-1"
+                                    style={{marginLeft: '0.5em'}}
+                                    onClick={/*() => onRemoveEntry(i)*/ () => {
+                                        setEditEntry(i)
+                                        const entry = user_entries[i]
+                                        setEditorState({user: entry.user, hasCard: entry.card})
+                                    }}
+                                >
+                                    <span>&nbsp;⋮&nbsp;</span>
+                                    {/*<GlyphIcon name="option-vertical"/>*/}
+                                </button>
+                            </div>
+                        )
+                    }
                 </li>
-            )}
+            })}
         </ul>
     )
 } 
 
-const ClientEntryEditor = ({user, hasCard, onChange, onSubmit}) => {
-    const hasUser = !!user
 
-    return (
-        <div style={{display: 'flex'}}>
-            {hasUser
-                ? (
-                    <div
-                        className="form-control"
-                        style={{
-                            background: 'rgba(0,0,0, 0.025)',
-                            display: 'flex',
-                            justifyContent: 'space-between'
-                        }}
-                    >
-                        <span>{user.label}</span>
-                        <button
-                            onClick={() => onChange({user: null})}
-                            className="close"
-                            tabIndex="-1"
-                            style={{opacity: 'inherit'}}
-                        >
-                            &nbsp;×&nbsp;
-                        </button>
-                    </div>
-                )
-                : (
-                    <ClientPicker
-                        onSelect={(user) => onChange({user})}
-                    />
-                )
+const makeClientEntryEditor = ({SubmitButton, CancelButton}) => (
+    ({user, hasCard, onChange = noop, onSubmit = noop, onCancel = noop}) => {
+        const hasUser = !!user
+
+        // when a user is picked, we hide the search bar and replace it with
+        // a dummy input containing the user's name. for proper keyboard navigation,
+        // we have to transfer the focus to the new input. 
+        const fakeInputRef = useRef()
+        const transferFocus = useRef(false)
+        useEffect(() => {
+            if (transferFocus.current && fakeInputRef.current) {
+                fakeInputRef.current.focus()
+                transferFocus.current = false
             }
-            <div style={{
-                    flexShrink: '0',
-                    paddingLeft: '0.5em',
-                    paddingRight: '0.5em',
-                    border: '1px solid #e1e1e1',
-                    display: 'flex',
-                    alignItems: 'center',
-                }}>
-                <span>MS</span>
-                <input
-                    type="checkbox"
-                    checked={hasCard}
-                    onChange={({target: {checked}}) => onChange({hasCard: !!checked})}
-                    style={{
-                        width: 'auto',
-                        margin: 'initial',
-                        marginLeft: '5px',
-                        display: 'inline',
-                    }}
-                />
-            </div>
-            <button
-                onClick={() => onSubmit({user, hasCard})}
-                disabled={!hasUser}
-                className="btn btn-primary"
-                style={{
-                    borderTopLeftRadius: '0px',
-                    borderBottomLeftRadius: '0px',
-                    background: '#3276b1',
-                    padding: 'initial',
-                    lineHeight: 'initial',
-                    paddingLeft: '10px',
-                    paddingRight: '10px',
-                    fontSize: '23px',
-                }}
-            >
-                +
-            </button>
-        </div>
-    )
+        }, [transferFocus.current])
 
-}
+        return (
+            <div style={{display: 'flex'}}>
+                {hasUser
+                    ? (
+                        <div
+                            style={{position: 'relative', flex: '1'}}
+                        >
+                            <input
+                                ref={fakeInputRef}
+                                className="form-control"
+                                style={{
+                                    background: 'rgba(0,0,0, 0.025)',
+                                }}
+                                type="text" 
+                                value={user.label}
+                                readOnly
+                            />
+                            <button
+                                title="Wyczyść"
+                                onClick={() => onChange({user: null})}
+                                className="close"
+                                tabIndex="-1"
+                                style={{position: 'absolute', top: '5px', right: '3px', opacity: 'inherit'}}
+                            >
+                                &nbsp;×&nbsp;
+                            </button>
+                        </div>
+                    )
+                    : (
+                        <ClientPicker
+                            onSelect={(user) => {transferFocus.current = true; onChange({user})}}
+                        />
+                    )
+                }
+                <div style={{
+                        flexShrink: '0',
+                        paddingLeft: '0.5em',
+                        paddingRight: '0.5em',
+                        border: '1px solid #e1e1e1',
+                        display: 'flex',
+                        alignItems: 'center',
+                    }}>
+                    <span>MS</span>
+                    <input
+                        type="checkbox"
+                        title="Karta zniżkowa"
+                        checked={hasCard}
+                        onChange={({target: {checked}}) => onChange({hasCard: !!checked})}
+                        style={{
+                            width: 'auto',
+                            margin: 'initial',
+                            marginLeft: '5px',
+                            display: 'inline',
+                        }}
+                    />
+                </div>
+                { SubmitButton &&
+                    <SubmitButton
+                        onClick={() => onSubmit({user, hasCard})}
+                        disabled={!hasUser}
+                    />
+                }
+                { CancelButton &&
+                    <CancelButton
+                        onClick={onCancel}
+                    />
+                }
+            </div>
+        )
+    }
+)
+
+
+const GlyphIcon = ({name}) => <span className={`glyphicon glyphicon-${name}`} />
+
+// const InlineClientEntryEditor = makeClientEntryEditor({
+//     SubmitButton: (props) => (
+//         <button {...props} className="btn btn-link" title="Zapisz"><GlyphIcon name="ok"/></button>
+//     ),
+//     CancelButton: (props) => (
+//         <button {...props} className="btn btn-link" title="Anuluj"><GlyphIcon name="remove"/></button>
+//     ),
+// })
+
+const InlineClientEntryEditor = makeClientEntryEditor({
+    SubmitButton: (props) => (
+        <button {...props} className="btn btn-link" title="Zapisz">✓</button>
+    ),
+    CancelButton: (props) => (
+        <button {...props} className="btn btn-link" title="Anuluj">🗙</button>
+    ),
+})
+
+
+const ClientEntryEditor = makeClientEntryEditor({
+    SubmitButton: (props) => (
+        <button
+            {...props}
+            title="Dodaj"
+            className="btn btn-primary"
+            style={{
+                borderTopLeftRadius: '0px',
+                borderBottomLeftRadius: '0px',
+                background: '#3276b1',
+                padding: 'initial',
+                lineHeight: 'initial',
+                paddingLeft: '10px',
+                paddingRight: '10px',
+                fontSize: '23px',
+            }}
+        >
+            +
+        </button>
+    )
+})
 
 
 
@@ -229,7 +326,7 @@ const ClientPicker = ({onSelect}) => {
     }
 
     return (
-        <div style={{display: 'flex'}}>
+        <Fragment>
             {state.mode === 'search' && (
                 <ClientSearch
                     search={state.search}
@@ -250,36 +347,36 @@ const ClientPicker = ({onSelect}) => {
                 />
             )}
             {state.mode === 'create' && (
-                <Fragment>
-                <input
-                    type="text"
-                    value={state.last_name}
-                    className="form-control"
-                    onChange={({target: {value}}) => setState({...state, last_name: value})}
-                    placeholder="Nazwisko"
-                    style={{
-                        flexBasis: '40%',
-                        minWidth: '0',
-                        borderTopRightRadius: '0px',
-                        borderBottomRightRadius: '0px',
-                        borderRight: 'none',
-                    }}
-                />
-                <input
-                    type="text"
-                    value={state.first_name}
-                    className="form-control"
-                    onChange={({target: {value}}) => setState({...state, first_name: value})}
-                    placeholder="Imię"
-                    style={{
-                        flexBasis: '40%',
-                        minWidth: '0',
-                        borderRadius: '0px',
-                    }}
-                />
-                </Fragment>
+                <div style={{display: 'flex'}}>
+                    <input
+                        type="text"
+                        value={state.last_name}
+                        className="form-control"
+                        onChange={({target: {value}}) => setState({...state, last_name: value})}
+                        placeholder="Nazwisko"
+                        style={{
+                            flexBasis: '40%',
+                            minWidth: '0',
+                            borderTopRightRadius: '0px',
+                            borderBottomRightRadius: '0px',
+                            borderRight: 'none',
+                        }}
+                    />
+                    <input
+                        type="text"
+                        value={state.first_name}
+                        className="form-control"
+                        onChange={({target: {value}}) => setState({...state, first_name: value})}
+                        placeholder="Imię"
+                        style={{
+                            flexBasis: '40%',
+                            minWidth: '0',
+                            borderRadius: '0px',
+                        }}
+                    />
+                </div>
             )}
-        </div>
+        </Fragment>
     )
 }
 
