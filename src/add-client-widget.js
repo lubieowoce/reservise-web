@@ -4,6 +4,7 @@ import React, {
 } from 'react'
 import Autosuggest from 'react-autosuggest';
 import { noop } from 'lodash'
+import { Popover } from 'react-tiny-popover'
 
 import { create_client } from './reservise-api'
 import { show_error } from './reservise-ui'
@@ -89,6 +90,9 @@ export const AddClient = ({user_entries, reservation_owner, onChange}) => {
 const ClientEntryList = ({user_entries, onModifyEntry, onRemoveEntry}) => {
     const [editEntry, setEditEntry] = useState(null)
     const [editorState, setEditorState] = useState(null)
+    const [openMenuIndex, setOpenMenuIndex] = useState(null)
+    const toggleOpenMenu = (i) => openMenuIndex === i ? closeMenu() : setOpenMenuIndex(i)
+    const closeMenu = () => setOpenMenuIndex(null)
 
     return (
         <ul
@@ -119,19 +123,44 @@ const ClientEntryList = ({user_entries, onModifyEntry, onRemoveEntry}) => {
                                     <a href={`/clients/c/${id}/`} target="blank">{label}</a>
                                 </span>
                                 {card && <span className="badge" style={{flexBasis: '15%'}}>MS</span>}
-                                <button
-                                    className="close"
-                                    tabIndex="-1"
-                                    style={{marginLeft: '0.5em'}}
-                                    onClick={/*() => onRemoveEntry(i)*/ () => {
-                                        setEditEntry(i)
-                                        const entry = user_entries[i]
-                                        setEditorState({user: entry.user, hasCard: entry.card})
-                                    }}
+                                <Popover
+                                    isOpen={openMenuIndex === i}
+                                    position="right"
+                                    onClickOutside={closeMenu}
+                                    content={
+                                        <div className="btn-group-vertical">
+                                            <IconButton
+                                                icon={<GlyphIcon name="pencil"/>}
+                                                label="Edytuj"
+                                                className="btn btn-default"
+                                                onClick={() => {
+                                                    closeMenu()
+                                                    setEditEntry(i)
+                                                    const entry = user_entries[i]
+                                                    setEditorState({user: entry.user, hasCard: entry.card})
+                                                }}/>
+                                            <IconButton
+                                                icon={<GlyphIcon name="trash"/>}
+                                                label="Usuń"
+                                                className="btn btn-default"
+                                                style={{color: 'tomato'}}
+                                                onClick={() => {
+                                                    closeMenu()
+                                                    onRemoveEntry(i)
+                                                }}
+                                            />
+                                        </div>
+                                    }
                                 >
-                                    <span>&nbsp;⋮&nbsp;</span>
-                                    {/*<GlyphIcon name="option-vertical"/>*/}
-                                </button>
+                                    <button
+                                        className="close"
+                                        tabIndex="-1"
+                                        style={{marginLeft: '0.5em'}}
+                                        onClick={() => toggleOpenMenu(i)}
+                                    >
+                                        <span>&nbsp;⋮&nbsp;</span>
+                                    </button>
+                                </Popover>
                             </div>
                         )
                     }
@@ -230,6 +259,15 @@ const makeClientEntryEditor = ({SubmitButton, CancelButton}) => (
     }
 )
 
+const IconButton = ({icon, label, ...props}) => {
+    return (
+        <button {...props}>
+            <div style={{display: 'flex', alignItems: 'center'}}>
+                {icon}<span style={{marginLeft: '0.7em'}}>{label}</span>
+            </div>
+        </button>
+    )
+}
 
 const GlyphIcon = ({name}) => <span className={`glyphicon glyphicon-${name}`} />
 
@@ -452,6 +490,10 @@ const ClientSearch = ({search, onSearchChanged, onSelect, delay=300, ...props}) 
 }
 
 AddClient.style = `
+    .react-tiny-popover-container {
+        z-index: 2000;
+    }
+
     .react-autosuggest__container {
         width: 100%;
     }
