@@ -4,8 +4,8 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "build": "webpack --config webpack.config.js",
-    "start": "webpack-dev-server --env.mode=development",
+    "build": "webpack --config webpack.config.cjs",
+    "start": "webpack-dev-server --env.mode=development --config webpack.config.cjs",
     "prepublish": "rm dist/* && npm run build"
   },
   "repository": {
