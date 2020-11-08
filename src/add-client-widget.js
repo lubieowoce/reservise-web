@@ -1,5 +1,5 @@
 import React, {
-    useState, useEffect, useRef,
+    useState, useEffect, useRef, useCallback,
     Fragment,
 } from 'react'
 import Autosuggest from 'react-autosuggest';
@@ -10,29 +10,15 @@ import { create_client } from './reservise-api'
 import { show_error } from './reservise-ui'
 
 
-
-
-
-
-export const AddClient = ({user_entries, reservation_owner, onChange}) => {
+export const AddClient = ({
+        user_entries,
+        reservation_owner,
+        onAddEntry,
+        onRemoveEntry,
+        onModifyEntry,
+    }) => {
 
     const [editorState, setEditorState] = useState({user: null, hasCard: false})
-
-    const onAddEntry = (entry) => {
-        const new_user_entries = append([...user_entries], entry)
-        onChange(new_user_entries)
-    }
-
-    const onRemoveEntry = (index) => {
-        const new_user_entries = remove_index([...user_entries], index)
-        onChange(new_user_entries)
-    }
-
-    const onModifyEntry = (index, entry) => {
-        const new_user_entries = [...user_entries]
-        new_user_entries[index] = entry
-        onChange(new_user_entries)
-    }
 
     const onAddOwner = () => {
         if (!reservation_owner) { return }
@@ -88,81 +74,99 @@ export const AddClient = ({user_entries, reservation_owner, onChange}) => {
 
 
 const ClientEntryList = ({user_entries, onModifyEntry, onRemoveEntry}) => {
-    const [editEntry, setEditEntry] = useState(null)
+    const [editEntry,   setEditEntry]   = useState(null)
     const [editorState, setEditorState] = useState(null)
+    const openEditor = useCallback((i, entry) => {
+        setEditEntry(i)
+        setEditorState({user: entry.user, hasCard: entry.card})
+    }, [])
+    const closeEditor = useCallback(() => {
+        setEditEntry(null)
+        setEditorState(null)
+    }, [])
+    
     const [openMenuIndex, setOpenMenuIndex] = useState(null)
-    const toggleOpenMenu = (i) => openMenuIndex === i ? closeMenu() : setOpenMenuIndex(i)
-    const closeMenu = () => setOpenMenuIndex(null)
+    const toggleOpenMenu = useCallback(
+        (i) => (openMenuIndex === i ? closeMenu() : setOpenMenuIndex(i)),
+        [openMenuIndex]
+    )
+    const closeMenu = useCallback(() => setOpenMenuIndex(null), [])
 
     return (
         <ul
             className="list-group"
             style={{marginTop: '0.7em', marginBottom: '0.7em'}}
         >
-            {user_entries.map(({user: {id, label}, card}, i) => {
-                const isEdited = (i === editEntry && editorState)
-                return <li className="list-group-item" key={`${id}-${i}`} style={isEdited ? {padding: '0'} : {}}>
-                    {(isEdited)
-                        ? <InlineClientEntryEditor
+            {user_entries.map((entry, i) => {
+                const {user: {id, label}, card} = entry
+                const showEditor = (i === editEntry && editorState)
+                const hasOpenMenu = (i === openMenuIndex)
+                return <li className="list-group-item" key={`${id}-${i}`} style={showEditor ? {padding: '0'} : {}}>
+                    {showEditor &&
+                        <InlineClientEntryEditor
                             user={editorState.user}
                             hasCard={editorState.hasCard}
                             onChange={(update) => setEditorState({...editorState, ...update})}
                             onSubmit={(entry) => {
-                                setEditEntry(null)
-                                setEditorState(null)
+                                closeEditor()
                                 onModifyEntry(i, {user: entry.user, card: entry.hasCard})
                             }}
-                            onCancel={() => {
-                                setEditEntry(null)
-                                setEditorState(null)
-                            }}
+                            onCancel={closeEditor}
                         />
-                        : (
-                            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                                <span style={{flexBasis: '100%'}}>
-                                    <a href={`/clients/c/${id}/`} target="blank">{label}</a>
-                                </span>
-                                {card && <span className="badge" style={{flexBasis: '15%'}}>MS</span>}
-                                <Popover
-                                    isOpen={openMenuIndex === i}
-                                    position="right"
-                                    onClickOutside={closeMenu}
-                                    content={
-                                        <div className="btn-group-vertical">
-                                            <IconButton
-                                                icon={<GlyphIcon name="pencil"/>}
-                                                label="Edytuj"
-                                                className="btn btn-default"
-                                                onClick={() => {
-                                                    closeMenu()
-                                                    setEditEntry(i)
-                                                    const entry = user_entries[i]
-                                                    setEditorState({user: entry.user, hasCard: entry.card})
-                                                }}/>
-                                            <IconButton
-                                                icon={<GlyphIcon name="trash"/>}
-                                                label="Usuń"
-                                                className="btn btn-default"
-                                                style={{color: 'tomato'}}
-                                                onClick={() => {
-                                                    closeMenu()
-                                                    onRemoveEntry(i)
-                                                }}
-                                            />
-                                        </div>
-                                    }
+                    }
+                    { // !showEditor &&
+                        // WORKAROUND
+                        // this section shouldn't really be rendered if we're showing the editor,
+                        // but <Popover> doesn't like when the anchor element (<button>) suddenly disappears
+                        // (i.e. errors about `childRef.current` being null after we call closeMenu()),
+                        // so instead we just hide it with display: none
+                        <div
+                            style={
+                                showEditor
+                                    ? {display: 'none'}
+                                    : {display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}
+                        >
+                            <span style={{flexBasis: '100%'}}>
+                                <a href={`/clients/c/${id}/`} target="blank">{label}</a>
+                            </span>
+                            {card && <span className="badge" style={{flexBasis: '15%'}}>MS</span>}
+                            <Popover
+                                isOpen={hasOpenMenu}
+                                position="right"
+                                onClickOutside={closeMenu}
+                                content={
+                                    <div className="btn-group-vertical">
+                                        <IconButton
+                                            icon={<GlyphIcon name="pencil"/>}
+                                            label="Edytuj"
+                                            className="btn btn-default"
+                                            onClick={() => {
+                                                closeMenu()
+                                                openEditor(i, entry)
+                                            }}/>
+                                        <IconButton
+                                            icon={<GlyphIcon name="trash"/>}
+                                            label="Usuń"
+                                            className="btn btn-default"
+                                            style={{color: 'tomato'}}
+                                            onClick={() => {
+                                                closeMenu()
+                                                onRemoveEntry(i)
+                                            }}
+                                        />
+                                    </div>
+                                }
+                            >
+                                <button
+                                    className="close"
+                                    tabIndex="-1"
+                                    style={{marginLeft: '0.5em'}}
+                                    onClick={() => toggleOpenMenu(i)}
                                 >
-                                    <button
-                                        className="close"
-                                        tabIndex="-1"
-                                        style={{marginLeft: '0.5em'}}
-                                        onClick={() => toggleOpenMenu(i)}
-                                    >
-                                        <span>&nbsp;⋮&nbsp;</span>
-                                    </button>
-                                </Popover>
-                            </div>
-                        )
+                                    <span>&nbsp;⋮&nbsp;</span>
+                                </button>
+                            </Popover>
+                        </div>
                     }
                 </li>
             })}
@@ -531,8 +535,6 @@ AddClient.style = `
 
 
 
-const remove_index = (xs, i) => {xs.splice(i, 1); return xs}
-const append = (xs, x) => {xs.push(x); return xs}
 
 
 const promise_pure = (x) => (new Promise((resolve)=>resolve(x)))

@@ -1,8 +1,6 @@
 // 2020.03.05-r1
-import { uniqBy, noop } from 'lodash'
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { GameResults } from './game-results-widget'
 
 import {
     is_nonempty,
@@ -10,7 +8,6 @@ import {
     group_by,
 } from './utils'
 
-import { AddClient, style as addClientStyle } from './add-client-widget'
 import * as card_count_badge from './card-count-badge'
 import * as api from './reservise-api'
 import * as ui from './reservise-ui'
@@ -19,6 +16,8 @@ import * as annotations from './annotations'
 
 import { CardList } from './card-list'
 import * as card_list from './card-list'
+
+import { ClientData } from './client-data-widget'
 
 
 const popover_annotation_node = (popover) => {
@@ -123,9 +122,9 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
     self.show = self.showPopover // rebind alias
 
     self.old_createPopoverContentFromResponse = self.createPopoverContentFromResponse
-    self.createPopoverContentFromResponse = function(data) {
+    self.createPopoverContentFromResponse = function(responseData) {
         // console.log('createPopoverContentFromResponse', self)
-        self.old_createPopoverContentFromResponse(data)
+        self.old_createPopoverContentFromResponse(responseData)
         const popover  = self.popoverContent[0]
         const $popover = $(popover)
         // self.selected_price = $popover.find('[data-price-list-id]').attr('data-price-list-id')
@@ -142,51 +141,72 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
 
         const reservation_owner = reservation_owner_from_popover($popover)
 
-        ann_data = ann_data || {}
-        let {users: user_entries = [], game_results = []} = ann_data
+        const dataToState = (data) => {
+            let {users: user_entries = [], game_results = []} = data || {}
+            return {user_entries, game_results}
+        }
 
-        self.get_custom_data = () => ({user_entries})
+        const stateToData = (state) => {
+            const {user_entries, game_results} = state
+            const data = {}
+            if (user_entries && user_entries.length > 0) {
+                data.users = user_entries
+            }
+            if (game_results && game_results.length > 0) {
+                data.game_results = game_results
+            }
+            return (
+                (Object.keys(data).length === 0)
+                    ? null
+                    : data
+            )
+        }
+
+
 
         const $tab_content = $popover.children('.tab-content')
 
         // CLIENT INPUT
         
-        const $client_input = $('<div>')
-        const $results_input = $('<div>')
-        $tab_content.before($client_input)
-        $tab_content.before($results_input)
+        const $client_data_input = $('<div>')
+        $tab_content.before($client_data_input)
+
+        const state = dataToState(ann_data)
+
+        const onChange = ({user_entries, game_results}) => {
+            let changed = false
+            if (user_entries) {
+                changed = true
+                state.user_entries = user_entries
+            }
+            if (game_results) {
+                changed = true
+                state.game_results = game_results
+            }
+            if (changed) {
+                // setTimeout(render_react_inputs, 0)
+                write_popover_data(self, stateToData(state))
+            }
+        }
 
         const render_react_inputs = () => {
-            ReactDOM.render(
-                <AddClient
-                    user_entries={user_entries}
-                    reservation_owner={reservation_owner}
-                    onChange={(new_user_entries) => {
-                        user_entries = new_user_entries
-                        console.info('rerendering AddClient', user_entries)
-                        setTimeout(render_react_inputs, 0)
-                        // write_popover_data(self, is_nonempty(new_user_entries) ? {...ann_data, users: new_user_entries} : null)
-                    }}
-                />,
-                $client_input[0]
-            )
 
             ReactDOM.render(
-                <GameResults
-                    game_results={game_results}
-                    users={uniqBy([reservation_owner, ...user_entries.map(({user}) => ({...user, id: parseInt(user.id)}))], 'id')}
-                    onChange={(new_results) => {
-                        game_results = new_results
-                        setTimeout(render_react_inputs, 0)
-                    }}
+                <ClientData
+                    user_entries={state.user_entries}
+                    reservation_owner={reservation_owner}
+                    game_results={state.game_results}
+                    onChange={onChange}
                 />,
-                $results_input[0]
+                $client_data_input[0]
             )
+
         }
 
         render_react_inputs()
 
 
+        self.get_custom_data = () => stateToData(state)
 
         // see inject_custom_data(...) above for explanation
         const $ann_form = $ann_tag.closest('form')
@@ -496,7 +516,7 @@ $(document).ready(() => {
     head.append($('<style id="card-info-badge-styles">').text(card_count_badge.style))
     head.append($('<style id="custom-styles">').text(CARNET_UNPAID_CSS))
     head.append($('<style id="collapsible-styles">').text(card_list.style))
-    head.append($('<style id="add-client-styles">').text(AddClient.style))
+    head.append($('<style id="add-client-styles">').text(ClientData.style))
 
     ui.refresh_popovers()
     // window.calendar.updateFullcalendar()
