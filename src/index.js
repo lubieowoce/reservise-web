@@ -230,10 +230,7 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
         }
 
         let ann_sf = $(popover_annotation_node(self)).data('bs.smartform')
-        ann_sf.get_custom_data = () => {
-            let {user_entries} = self.get_custom_data()
-            return is_nonempty(user_entries) ? {users: user_entries} : null
-        }
+        ann_sf.get_custom_data = () => self.get_custom_data()
     }
 
     return self
