@@ -70,7 +70,7 @@ export const replaceUser = (results, {oldId, newId}) => {
 // )
 
 export const GameResults = ({game_results, users, onChange}) => {
-    console.log('<GameResults>', {game_results, users})
+    // console.log('<GameResults>', {game_results, users})
     // const user_ids = sortBy(users, 'name').map(({id}) => id)
     const user_ids = users.map(({id}) => id)
     const users_by_id = keyBy(users, 'id')
@@ -80,14 +80,21 @@ export const GameResults = ({game_results, users, onChange}) => {
     const [modified_results, set_modified_results] = useState(IMap())
 
     const did_change = modified_results.count() > 0
-    let all_results = game_results.merge(modified_results)
-    for (let [id1, id2] of pair_combinations(user_ids)) {
+    const all_results = game_results.merge(modified_results)
+
+    const results_with_blanks = pair_combinations(user_ids).map(([id1, id2]) => {
         const ids    = IList([id1, id2])
         const idsRev = IList([id2, id1])
-        if (!all_results.has(ids) && !all_results.has(idsRev)) {
-            all_results = all_results.set(ids, null)
+        if (all_results.has(ids)) {
+            return [ids, all_results.get(ids)]
         }
-    }
+        else if (all_results.has(idsRev)) {
+            return [idsRev, all_results.get(idsRev)]
+        }
+        else {
+            return [ids, null]
+        }
+    })
 
     const modify_result = (ids, result) => {
         if (game_results.get(ids) === result) { return }
@@ -113,7 +120,12 @@ export const GameResults = ({game_results, users, onChange}) => {
                 save_results()
             }}
         >
-            {[...all_results.entries()].map(([ids, score]) => {
+            {users.length <= 1 &&
+                <div style={{fontStyle: 'italic', color: 'rgba(0,0,0, 0.3)', padding: '1em'}}>
+                    Dodaj więcej graczy żeby wpisać wynik meczu.
+                </div>
+            }
+            {users.length > 1 && results_with_blanks.map(([ids, score]) => {
                 const [id1, id2] = ids.toJS()
                 const user1 = users_by_id[id1]
                 const user2 = users_by_id[id2]
@@ -123,6 +135,7 @@ export const GameResults = ({game_results, users, onChange}) => {
                         <div style={{flexBasis: '40%', 'flexShrink': '0', opacity: '0.8'}}>{user2.name}</div>
                         <input
                             className="form-control"
+                            placeholder="0-0"
                             type="text"
                             style={{
                                 flexBasis: '20%',
@@ -139,10 +152,13 @@ export const GameResults = ({game_results, users, onChange}) => {
                 )
             })}
             {did_change && (
-                <Fragment>
+                <div>
                     <input className="btn btn-green" type="submit" value="Zapisz"/>
-                    <button className="btn btn-link" onClick={revert_results}>Anuluj</button>
-                </Fragment>
+                    <button tabIndex="-1" className="btn btn-link" onClick={revert_results}>
+                        Anuluj
+                    </button>
+                    <div style={{height: '5px'}}/>
+                </div>
             )}
         </form>
     )

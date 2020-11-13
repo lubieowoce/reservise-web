@@ -164,12 +164,22 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
 
 
 
-        const $tab_content = $popover.children('.tab-content')
+        const $tab = $popover.find('#tab-information')
 
         // CLIENT INPUT
         
-        const $client_data_input = $('<div>')
-        $tab_content.before($client_data_input)
+        const $client_data_input = $(`
+            <div
+                style="
+                    margin-left: -10px;
+                    margin-right: -10px;
+                    margin-top: -10px;
+                    padding-bottom: 10px;
+                "
+            >
+            </div>
+        `)
+        $tab.prepend($client_data_input)
 
         const state = dataToState(ann_data)
 
@@ -184,12 +194,19 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
                 state.game_results = game_results
             }
             if (changed) {
-                // setTimeout(render_react_inputs, 0)
-                write_popover_data(self, stateToData(state))
+                // let React rerender to show the changes and then persist
+                // the data to the events annotation, which destroys the popover
+                // DOM node and refetches it from the server.
+                setTimeout(() =>
+                    render_react_inputs(() =>
+                        write_popover_data(self, stateToData(state))
+                    ),
+                    0
+                )
             }
         }
 
-        const render_react_inputs = () => {
+        const render_react_inputs = (...args) => {
 
             ReactDOM.render(
                 <ClientData
@@ -198,7 +215,8 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
                     game_results={state.game_results}
                     onChange={onChange}
                 />,
-                $client_data_input[0]
+                $client_data_input[0],
+                ...args,
             )
 
         }
@@ -507,11 +525,18 @@ const CARNET_UNPAID_CSS = `
     box-shadow: inset 0px 5px 0px 0px rgba(30, 54, 250, 0.85) !important;
 }
 `
+const POPOVER_EXTRA_CSS = `
+.popover.reservationPopover {
+    box-shadow: 0 10px 10px rgba(0,0,0, 0.1);
+    /*border: 1px solid #c5c5c5;*/
+}
+`
 
 $(document).ready(() => {
     let head = $('head')
     head.append($('<style id="card-info-badge-styles">').text(card_count_badge.style))
     head.append($('<style id="custom-styles">').text(CARNET_UNPAID_CSS))
+    head.append($('<style id="popover-extra-styles">').text(POPOVER_EXTRA_CSS))
     head.append($('<style id="collapsible-styles">').text(card_list.style))
     head.append($('<style id="add-client-styles">').text(ClientData.style))
 

@@ -139,7 +139,14 @@ export const create_client = (client_data) => {
     }
     return _create_client(client_data).then((res) => {
         if (!(typeof res === "object" && res.success === true)) {
-            throw new Error(`Could not create user: ${JSON.stringify(client_data)}`)
+            let msg = ""
+            if (typeof res === "object" && res.html !== undefined) {
+                msg = parseCreateClientFormErrors(res.html).join('\n')
+            }
+            if (!msg) {
+                msg = "Could not create user"
+            }
+            throw new Error(msg)
         }
         let match = res.client_info_url.match(/\/clients\/client\/(\d+)\//)
         if (!match) {
@@ -154,21 +161,21 @@ export const create_client = (client_data) => {
     })
 }
 
-const _create_client = ({last_name, first_name}) => (
+const _create_client = ({last_name, first_name, email = '', phone_number = ''}) => (
     $ajax_promise({
         type: 'GET', url: '/clients/create/client/', dataType: 'json',
     }).then((data)=> {
-        let csrf = (data.html.match(/<input type='hidden' name='csrfmiddlewaretoken' value='(.+?)'/) || [null, null])[1]
+        let [, csrf] = data.html.match(/<input type='hidden' name='csrfmiddlewaretoken' value='(.+?)'/) || []
         if (!csrf) {
             throw new Error('INTERNAL ERROR: no csrf token found in response: ' + JSON.stringify(data))
         }
         return $ajax_promise({type: 'POST', url: '/clients/create/client/',  dataType: 'json', data: {
             csrfmiddlewaretoken: csrf,
             annotation: '',
-            first_name: first_name,
-            last_name: last_name,
-            email: '',
-            phone_number: '',
+            first_name,
+            last_name,
+            email,
+            phone_number,
             discount: 0,
             enable_sms_notifications: 'on',
             enable_creating_reservations: 'on',
@@ -180,3 +187,13 @@ const _create_client = ({last_name, first_name}) => (
         }})
     })
 )
+
+const parseCreateClientFormErrors = (formText) => {
+    const form = $(`<div>${formText}</div>`)[0]
+    const messages = (
+        [...form.querySelectorAll('.label.label-form-error')]
+            .map((label) => label.innerText.trim())
+    )
+    form.remove()
+    return messages
+}

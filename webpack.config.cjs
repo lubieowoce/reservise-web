@@ -6,7 +6,8 @@ module.exports = (env = {}) => {
 
 	return {
 		mode: mode,
-		devtool: (isDev ? 'source-map' : false),
+		// devtool: (isDev ? 'source-map' : false),
+		devtool: 'source-map',
 		entry: './src/index.js',
 		module: {
 			rules: [

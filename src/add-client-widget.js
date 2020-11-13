@@ -1,5 +1,5 @@
 import React, {
-    useState, useEffect, useRef, useCallback,
+    useState, useEffect, useRef, useCallback, useMemo,
     Fragment,
 } from 'react'
 import Autosuggest from 'react-autosuggest';
@@ -18,29 +18,30 @@ export const AddClient = ({
         onModifyEntry,
     }) => {
 
-    const [editorState, setEditorState] = useState({user: null, hasCard: false})
+    const [editorState, setEditorState] = useState({userPicker: PickerState.blank, hasCard: false})
 
     const onAddOwner = () => {
         if (!reservation_owner) { return }
         onAddEntry({user: reservation_owner, card: true})
     }
 
-    const show_add_owner = !!(
+    const showAddOwner = !!(
         reservation_owner &&
         !user_entries.some(({user, card}) => card && (user.id === reservation_owner.id))
     )
+    const ownerName = reservation_owner.name || reservation_owner.label.replace(/\s\([+0-9]+\)$/, '')
 
     return (
         <div className="custom-wrapper divWrapper setPaddingLR setPaddingTB">
-            <h5 className="gray" style={{marginBottom: '5px'}}>Gracze</h5>
+            <h5 className="gray" style={{marginBottom: '5px'}}>Gracze i karty zniżkowe</h5>
             <div className="divWrapper">
                 <ClientEntryEditor
-                    user={editorState.user}
+                    userPicker={editorState.userPicker}
                     hasCard={editorState.hasCard}
                     onChange={(update) => setEditorState({...editorState, ...update})}
                     onSubmit={(entry) => {
                         onAddEntry({user: entry.user, card: entry.hasCard})
-                        setEditorState({user: null, hasCard: false})}
+                        setEditorState({userPicker: PickerState.blank, hasCard: false})}
                     }
                 />
                <ClientEntryList
@@ -48,9 +49,10 @@ export const AddClient = ({
                     onRemoveEntry={onRemoveEntry}
                     onModifyEntry={onModifyEntry}
                 />
-                {show_add_owner && (
+                {showAddOwner && (
                     <button
                         onClick={onAddOwner}
+                        title="kliknij, jeśli właściciel rezerwacji okazał kartę zniżkową."
                         className="btn"
                         style={{
                             display: 'block',
@@ -60,7 +62,7 @@ export const AddClient = ({
                             fontSize: '0.8em',
                         }}
                     >
-                        dodaj <strong>{reservation_owner.label}</strong>
+                        <strong>+</strong> dodaj <strong>{ownerName}</strong> z kartą zniżkową
                     </button>
                 )}
             </div>
@@ -78,7 +80,10 @@ const ClientEntryList = ({user_entries, onModifyEntry, onRemoveEntry}) => {
     const [editorState, setEditorState] = useState(null)
     const openEditor = useCallback((i, entry) => {
         setEditEntry(i)
-        setEditorState({user: entry.user, hasCard: entry.card})
+        setEditorState({
+            userPicker: {type: PickerState.SELECTED, user: entry.user},
+            hasCard: entry.card,
+        })
     }, [])
     const closeEditor = useCallback(() => {
         setEditEntry(null)
@@ -95,7 +100,7 @@ const ClientEntryList = ({user_entries, onModifyEntry, onRemoveEntry}) => {
     return (
         <ul
             className="list-group"
-            style={{marginTop: '0.7em', marginBottom: '0.7em'}}
+            style={{marginTop: '0.5em', marginBottom: '0.5em'}}
         >
             {user_entries.map((entry, i) => {
                 const {user: {id, label}, card} = entry
@@ -104,7 +109,7 @@ const ClientEntryList = ({user_entries, onModifyEntry, onRemoveEntry}) => {
                 return <li className="list-group-item" key={`${id}-${i}`} style={showEditor ? {padding: '0'} : {}}>
                     {showEditor &&
                         <InlineClientEntryEditor
-                            user={editorState.user}
+                            userPicker={editorState.userPicker}
                             hasCard={editorState.hasCard}
                             onChange={(update) => setEditorState({...editorState, ...update})}
                             onSubmit={(entry) => {
@@ -172,59 +177,58 @@ const ClientEntryList = ({user_entries, onModifyEntry, onRemoveEntry}) => {
             })}
         </ul>
     )
-} 
+}
 
 
 const makeClientEntryEditor = ({SubmitButton, CancelButton}) => (
-    ({user, hasCard, onChange = noop, onSubmit = noop, onCancel = noop}) => {
-        const hasUser = !!user
+    ({userPicker: pickerState, hasCard, onChange = noop, onSubmit = noop, onCancel = noop}) => {
+        const canSubmit = (
+            (pickerState.type === PickerState.SELECTED) ||
+            (pickerState.type === PickerState.CREATE
+                && pickerState.data.firstName
+                && pickerState.data.lastName
+            )
+        )
 
-        // when a user is picked, we hide the search bar and replace it with
-        // a dummy input containing the user's name. for proper keyboard navigation,
-        // we have to transfer the focus to the new input. 
-        const fakeInputRef = useRef()
-        const transferFocus = useRef(false)
-        useEffect(() => {
-            if (transferFocus.current && fakeInputRef.current) {
-                fakeInputRef.current.focus()
-                transferFocus.current = false
+        const onSubmitClicked = async () => {
+            let user
+            if (pickerState.type === PickerState.SELECTED) {
+                user = pickerState.user
+                // onSubmit({user: pickerState.user, hasCard})
+            } else if (pickerState.type === PickerState.CREATE) {
+                const {lastName, firstName, email = '', phone = ''} = pickerState.data
+                // TODO: error message?
+                let response
+                try {
+                    response = await create_client({
+                        last_name:    lastName,
+                        first_name:   firstName,
+                        email:        email,
+                        phone_number: phone,
+                    })
+                } catch (err) {
+                    console.error('Error submitting user', pickerState.data, err)
+                    show_error(err.message)
+                    return
+                }
+                user = {
+                    id: response.id,
+                    label: `${lastName} ${firstName}` + (phone ? ` (${phone})` : '')
+                }
+            } else {
+                return
             }
-        }, [transferFocus.current])
+
+            onSubmit({user, hasCard})
+            onChange({userPicker: PickerState.blank})
+        }
 
         return (
             <div style={{display: 'flex'}}>
-                {hasUser
-                    ? (
-                        <div
-                            style={{position: 'relative', flex: '1'}}
-                        >
-                            <input
-                                ref={fakeInputRef}
-                                className="form-control"
-                                style={{
-                                    background: 'rgba(0,0,0, 0.025)',
-                                }}
-                                type="text" 
-                                value={user.label}
-                                readOnly
-                            />
-                            <button
-                                title="Wyczyść"
-                                onClick={() => onChange({user: null})}
-                                className="close"
-                                tabIndex="-1"
-                                style={{position: 'absolute', top: '5px', right: '3px', opacity: 'inherit'}}
-                            >
-                                &nbsp;×&nbsp;
-                            </button>
-                        </div>
-                    )
-                    : (
-                        <ClientPicker
-                            onSelect={(user) => {transferFocus.current = true; onChange({user})}}
-                        />
-                    )
-                }
+                <ClientInput
+                    state={pickerState}
+                    onChange={(state) => onChange({userPicker: state})}
+                />
                 <div style={{
                         flexShrink: '0',
                         paddingLeft: '0.5em',
@@ -236,7 +240,7 @@ const makeClientEntryEditor = ({SubmitButton, CancelButton}) => (
                     <span>MS</span>
                     <input
                         type="checkbox"
-                        title="Karta zniżkowa"
+                        title="Klient ma kartę zniżkową"
                         checked={hasCard}
                         onChange={({target: {checked}}) => onChange({hasCard: !!checked})}
                         style={{
@@ -249,8 +253,8 @@ const makeClientEntryEditor = ({SubmitButton, CancelButton}) => (
                 </div>
                 { SubmitButton &&
                     <SubmitButton
-                        onClick={() => onSubmit({user, hasCard})}
-                        disabled={!hasUser}
+                        onClick={onSubmitClicked}
+                        disabled={!canSubmit}
                     />
                 }
                 { CancelButton &&
@@ -275,23 +279,23 @@ const IconButton = ({icon, label, ...props}) => {
 
 const GlyphIcon = ({name}) => <span className={`glyphicon glyphicon-${name}`} />
 
-// const InlineClientEntryEditor = makeClientEntryEditor({
-//     SubmitButton: (props) => (
-//         <button {...props} className="btn btn-link" title="Zapisz"><GlyphIcon name="ok"/></button>
-//     ),
-//     CancelButton: (props) => (
-//         <button {...props} className="btn btn-link" title="Anuluj"><GlyphIcon name="remove"/></button>
-//     ),
-// })
-
 const InlineClientEntryEditor = makeClientEntryEditor({
     SubmitButton: (props) => (
-        <button {...props} className="btn btn-link" title="Zapisz">✓</button>
+        <button {...props} className="btn btn-link" title="Zapisz"><GlyphIcon name="ok"/></button>
     ),
     CancelButton: (props) => (
-        <button {...props} className="btn btn-link" title="Anuluj">🗙</button>
+        <button {...props} className="btn btn-link" title="Anuluj"><GlyphIcon name="remove"/></button>
     ),
 })
+
+// const InlineClientEntryEditor = makeClientEntryEditor({
+//     SubmitButton: (props) => (
+//         <button {...props} className="btn btn-link" title="Zapisz">✓</button>
+//     ),
+//     CancelButton: (props) => (
+//         <button {...props} className="btn btn-link" title="Anuluj">×</button>
+//     ),
+// })
 
 
 const ClientEntryEditor = makeClientEntryEditor({
@@ -317,67 +321,100 @@ const ClientEntryEditor = makeClientEntryEditor({
 })
 
 
-
-
-const initial_state = () => {
-    return {
-        mode: 'search',
-        search: '',
-        user: null,
-        last_name:  null,
-        first_name: null,
-    }
+const PickerState = {
+    SEARCH:    'search',
+    CREATE:    'create',
+    SELECTED:  'selected',
 }
 
-const ClientPicker = ({onSelect}) => {
-    const [state, setState] = useState(initial_state())
+PickerState.blank = {
+    type: PickerState.SEARCH,
+    search: '',
+}
 
-    const onSubmit = () => {
-        const {mode} = state
-        let user_promise, card
-        if (mode === 'search') {
-            card = state.card
-            user_promise = promise_pure(state.user)
-        } else if (mode === 'create') {
-            card = state.card
-            const {last_name, first_name} = state
-            user_promise = create_client({last_name: last_name, first_name: first_name}).then((client) => (
-                {id: client.id, label: last_name + ' ' + first_name} 
-            ))
-        } else {
-            throw new Error(`Invalid custom_input mode: "${mode}"`)
+/*
+PickerState
+    = { type: 'search', search: string }
+    | { type: 'create', data }
+    | { type: 'selected', user }
+*/
+
+const useTransferFocus = () => {
+    const shouldTransferFocus = useRef(false)
+    const doTransferFocus = useCallback(() => {
+        shouldTransferFocus.current = true
+    }, [])
+    const focusOnMount = useCallback((node) => {
+        if (shouldTransferFocus.current && node) {
+            node.focus()
+            shouldTransferFocus.current = false
         }
+    }, [])
+    return [focusOnMount, doTransferFocus]
+}
 
-        return (
-            user_promise
-                .then((user) => {
-                    const entry = {user, card}
-                    onSelect(entry)
-                    setState(initial_state())
-                })
-                .catch((err) => {
-                    const msg = (
-                        typeof err === 'object' && err.message !== undefined
-                            ? err.message
-                            : 'Unknown error'
-                    )
-                    console.error('Error submitting user', state, err)
-                    show_error(msg)
-                })
-        )
-    }
+const ClientInput = ({state, onChange}) => {
+    // when a user is picked, we hide the search bar and replace it with
+    // a dummy input containing the user's name. for proper keyboard navigation,
+    // we have to transfer the focus to the new input. 
 
+    // const fakeInputRef = useRef()
+    // const transferFocus = useRef(false)
+    // useEffect(() => {
+    //     if (transferFocus.current && fakeInputRef.current) {
+    //         fakeInputRef.current.focus()
+    //         transferFocus.current = false
+    //     }
+    // }, [transferFocus.current])
+    
+    // console.log('<ClientInput>', state)
+    const [focusRef, transferFocus] = useTransferFocus()
     return (
-        <Fragment>
-            {state.mode === 'search' && (
+        <div style={{position: 'relative', flex: '1'}}>
+            {state.type === PickerState.SELECTED &&
+                <Fragment>
+                    <input
+                        ref={focusRef}
+                        className="form-control"
+                        style={{
+                            cursor: 'default',
+                            background: 'rgba(0,0,0, 0.025)',
+                        }}
+                        type="text" 
+                        value={state.user.label}
+                        readOnly
+                    />
+                    <button
+                        title="Wyczyść"
+                        onClick={() => onChange(PickerState.blank)}
+                        className="close"
+                        tabIndex="-1"
+                        style={{position: 'absolute', top: '5px', right: '3px', opacity: 'inherit'}}
+                    >
+                        &nbsp;×&nbsp;
+                    </button>
+                </Fragment>
+            }
+            {state.type === PickerState.SEARCH && (
                 <ClientSearch
                     search={state.search}
-                    onSearchChanged={(search) => setState({...state, search})}
+                    onSearchChanged={(search) => onChange({...state, search})}
                     onSelect={(user) => {
-                        // const name = `${user.last_name} ${user.first_name}`
                         user = user && {id: user.id, label: user.label}
-                        // setState({...state, user, search: name})
-                        onSelect(user)
+                        // onSelect(user)
+                        onChange({type: PickerState.SELECTED, user})
+                        transferFocus()
+                    }}
+                    onCreate={(search) => {
+                        const {firstName, lastName} = parseName(search)
+                        const data = {
+                            lastName: lastName,
+                            firstName: firstName,
+                            email: '',
+                            phone: '',
+                        }
+                        onChange({type: PickerState.CREATE, data, originalSearch: search})
+                        transferFocus()
                     }}
                     className="form-control"
                     placeholder="Nazwisko klienta lub numer telefonu"
@@ -388,99 +425,149 @@ const ClientPicker = ({onSelect}) => {
                     }}
                 />
             )}
-            {state.mode === 'create' && (
-                <div style={{display: 'flex'}}>
-                    <input
-                        type="text"
-                        value={state.last_name}
-                        className="form-control"
-                        onChange={({target: {value}}) => setState({...state, last_name: value})}
-                        placeholder="Nazwisko"
-                        style={{
-                            flexBasis: '40%',
-                            minWidth: '0',
-                            borderTopRightRadius: '0px',
-                            borderBottomRightRadius: '0px',
-                            borderRight: 'none',
-                        }}
-                    />
-                    <input
-                        type="text"
-                        value={state.first_name}
-                        className="form-control"
-                        onChange={({target: {value}}) => setState({...state, first_name: value})}
-                        placeholder="Imię"
-                        style={{
-                            flexBasis: '40%',
-                            minWidth: '0',
-                            borderRadius: '0px',
-                        }}
+            {state.type === PickerState.CREATE && (
+                <div className="form-control" style={{position: 'relative', flex: '1'}}>
+                    <ClientEditor
+                        {...state.data}
+                        onChange={(update) => onChange({...state, data: {...state.data, ...update}})}
+                        onCancel={() => onChange({type: PickerState.SEARCH, search: state.originalSearch || ''})}
+                        containerProps={{style: {
+                            position: 'absolute', zIndex: 2000, top: '0', left: '0',
+                            width: '100%',
+                            background: 'white',
+                            boxShadow: '0 10px 10px rgba(0,0,0, 0.15)',
+                        }}}
+                        refs={{lastName: focusRef}}
                     />
                 </div>
             )}
-        </Fragment>
+        </div>
     )
 }
 
 
-const ClientSearch = ({search, onSearchChanged, onSelect, delay=300, ...props}) => {
+const FIELD_LABELS = {
+    lastName:  "Nazwisko",
+    firstName: "Imię",
+    phone:     "Telefon",
+    email:     "Email",
+}
+
+const ClientEditor = ({onChange, onCancel = noop, containerProps = {}, refs = null, ...props}) => {
+    const textFieldProps = (NAME, extras = null) => {
+        const res = {
+            type: "text",
+            value: props[NAME],
+            className: "form-control",
+            onChange: ({target: {value}}) => onChange({...props, [NAME]: value}),
+            title: FIELD_LABELS[NAME],
+            placeholder: FIELD_LABELS[NAME],
+            style: {minWidth: '0', borderRadius: '0'},
+        }
+        if (refs && refs[NAME]) {
+            res.ref = refs[NAME]
+        }
+        if (extras) {
+            if (extras.style) {
+                Object.assign(res.style, extras.style)
+            }
+        }
+        return res
+    }
+    return (
+        <div {...containerProps} >
+            <div style={{display: 'flex'}}>
+                <input {...textFieldProps('lastName',  {style: {flex: '50%'}})} />
+                <input {...textFieldProps('firstName', {style: {flex: '50%'}})} />
+            </div>
+            <input {...textFieldProps('phone')} />
+            <input {...textFieldProps('email')} />
+            <div style={{display: 'flex', justifyContent: 'space-between'}}>
+                {/*<Spinner style={{alignSelf: 'center', marginLeft: '12px'}}/>*/}
+                <span/>
+                <button
+                    style={{display: 'block'}}
+                    className="btn btn-link"
+                    title="Anuluj tworzenie klienta"
+                    tabIndex="-1"
+                    onClick={onCancel}
+                >
+                    Anuluj
+                </button>
+
+            </div>
+        </div>
+    )
+}
+
+
+
+
+const ADD_CLIENT_ITEM = { isCreateClient: true, label: 'Stwórz klienta' }
+
+const ClientSearch = ({search, onSearchChanged, onSelect, onCreate, delay=300, ...props}) => {
     const [request, setRequest] = useState({state: 'done'})
-    const [suggestions, setSuggestions] = useState([])
+    const [_suggestions, setSuggestions] = useState([])
+    const suggestions = useMemo(() => [..._suggestions, ADD_CLIENT_ITEM], [_suggestions])
 
-    const searchClients = (term) => {
-        const controller = new AbortController()
-        const signal = controller.signal
-        const cancel = () => controller.abort()
-
-        const resultPromise = (async () => {
-            const searchURL = `/clients/clients_autocomplete/?exclude=&term=${term}`
-            const response = await fetch(searchURL, {signal})
-            const {clients = []} = await response.json()
-            return clients
-        })()
-
-        return [resultPromise, cancel]
+    const onFetch = ({value: search}) => {
+        if (!search) { return }
+        if (request.state === 'waiting') {
+            clearTimeout(request.timeoutToken)
+        }
+        else if (request.state === 'requested') {
+            request.cancel()
+        }
+        setRequest({
+            state: 'waiting',
+            timeoutToken: setTimeout(() => {
+                const [req, cancel] = searchClients(search)
+                setRequest({
+                    state: 'requested',
+                    cancel,
+                    request: req.then((clients) => {
+                        setRequest({state: 'done'})
+                        setSuggestions(clients)
+                    }).catch(()=>{})
+                })
+            }, delay)
+        })
     }
 
     return (
         <Autosuggest
+            theme={SEARCH_THEME}
             suggestions={suggestions}
-            // Autosuggest will call this function every time you need to update suggestions.
-            onSuggestionsFetchRequested={({value: search}) => {
-                if (!search) { return }
-                if (request.state === 'waiting') {
-                    clearTimeout(request.token)
-                }
-                else if (request.state === 'requested') {
-                    request.cancel()
-                }
-                setRequest({
-                    state: 'waiting',
-                    token: setTimeout(() => {
-                        const [req, cancel] = searchClients(search)
-                        setRequest({
-                            state: 'requested',
-                            cancel,
-                            request: req.then((clients) => {
-                                setRequest({state: 'done'})
-                                setSuggestions(clients)
-                            }).catch(()=>{})
-                        })
-                    }, delay)
-                })
-            }}
-            // Autosuggest will call this function every time you need to clear suggestions.
-            onSuggestionsClearRequested={() =>
-                setSuggestions([])
-            }
+            onSuggestionsFetchRequested={onFetch}
+            onSuggestionsClearRequested={() => setSuggestions([])}
             highlightFirstSuggestion
-            // When suggestion is clicked, Autosuggest needs to populate the input
-            // element based on the clicked suggestion.
-            getSuggestionValue={(item) => `${item.last_name} ${item.first_name}`}
-            renderSuggestion={(item, {_query, _isHighlighted}) => <div>{item.label}</div>}
-            onSuggestionSelected={(event, {suggestion, _suggestionValue, _suggestionIndex, _sectionIndex, _method}) => {
-                // onSearchChanged(suggestionValue)
-                onSelect(suggestion)
+            // renderInputComponent={(inputProps) =>
+            //     <div style={{position: 'relative'}}>
+            //         <input {...inputProps}/>
+            //         {request.state === 'requested' &&
+            //             <Spinner
+            //                 text={SPINNER_DOT}
+            //                 style={{position: 'absolute', top: '5px', right: '3px'}}
+            //             />
+            //         }
+            //     </div>
+            // }
+            getSuggestionValue={(item) =>
+                item.isCreateClient
+                    ? search
+                    : `${item.last_name} ${item.first_name}`
+            }
+            renderSuggestion={(item, {_query, _isHighlighted}) =>
+                item.isCreateClient
+                    ? <div style={{fontWeight: 'bold'}}>+ {item.label}</div>
+                    : <div>{item.label}</div>
+            }
+            onSuggestionSelected={(event, {suggestion: item, _suggestionValue, _suggestionIndex, _sectionIndex, _method}) => {
+                if (item.isCreateClient) {
+                    onCreate(search)
+                } else {
+                    onSelect(item)
+                }
             }}
 
             // Autosuggest will pass through all these props to the input.
@@ -493,7 +580,30 @@ const ClientSearch = ({search, onSearchChanged, onSelect, delay=300, ...props}) 
     )
 }
 
-AddClient.style = `
+const searchClients = (term) => {
+    const controller = new AbortController()
+    const signal = controller.signal
+    const cancel = () => controller.abort()
+
+    const resultPromise = (async () => {
+        const searchURL = `/clients/clients_autocomplete/?exclude=&term=${term}`
+        const response = await fetch(searchURL, {signal})
+        const {clients = []} = await response.json()
+        return clients
+    })()
+
+    return [resultPromise, cancel]
+}
+
+const SEARCH_THEME = {
+    ...Autosuggest.defaultProps.theme,
+    suggestionsList: [
+        'react-autosuggest__suggestions-list',
+        'react-autosuggest__suggestions-list-separate-last',
+    ].join(' '),
+}
+
+ClientSearch.style = `
     .react-tiny-popover-container {
         z-index: 2000;
     }
@@ -520,10 +630,14 @@ AddClient.style = `
         z-index: 1000;
         top: 0; left: 0;
     }
+    .react-autosuggest__suggestions-list.react-autosuggest__suggestions-list-separate-last > li:last-child {
+        border-top: 1px solid rgba(0,0,0, 0.1);
+    }
     .react-autosuggest__suggestion {
         width: 100%;
         padding: 0.8em;
         font-size: 0.9em;
+        cursor: pointer;
     }
     .react-autosuggest__suggestion--first {}
     .react-autosuggest__suggestion--highlighted {
@@ -533,8 +647,34 @@ AddClient.style = `
 
 `
 
+// const SPINNER_DOT = '•'
+// const SPINNER_DOTS = '•••'
+
+// const Spinner = ({style = null, text = SPINNER_DOT, ...props}) => {
+//     const defaultStyle = {color: 'rgba(0,0,0, 0.3)'}
+//     const endStyle = style ? {...defaultStyle, ...style} : defaultStyle
+//     return (
+//         <span className="great-fun-spinner" style={endStyle} {...props}>{text}</span>
+//     )
+// }
+
+// Spinner.style = `
+// .great-fun-spinner {
+//     animation: fade-in-out 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+// }
+
+// @keyframes fade-in-out {
+//     0%   { opacity: 0; }
+//     50%  { opacity: 1; }
+//     100% { opacity: 0; }
+// }
+// `
 
 
+AddClient.style = [
+    ClientSearch.style,
+    // Spinner.style
+].join('\n')
 
 
 const promise_pure = (x) => (new Promise((resolve)=>resolve(x)))
@@ -556,5 +696,5 @@ const parseName = (s) => {
         lastName  = parts.slice(0, -1).join(' ')
         firstName = parts[parts.length-1]
     }
-    return [lastName, firstName]
+    return {lastName, firstName}
 }

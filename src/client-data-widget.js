@@ -14,7 +14,7 @@ export const ClientData = ({
         onChange,
     }) => {
 
-    console.log('<ClientData>', {user_entries, game_results, reservation_owner})
+    // console.log('<ClientData>', {user_entries, game_results, reservation_owner})
     const [isOpen, toggleIsOpen] = useToggle(false)
     const users = useMemo(() =>
         usersFromEntries({reservation_owner, user_entries})
@@ -86,7 +86,16 @@ export const ClientData = ({
                 onRemoveEntry={onRemoveEntry}
                 onModifyEntry={onModifyEntry}
             />
-            <Collapsible content="Wyniki" isOpen={isOpen} onToggle={toggleIsOpen}>
+            <Collapsible
+                className="collapsible-outlined-tb"
+                content={
+                    <span style={{color: '#cacaca'}}>
+                        Wyniki {game_results.length > 0 && `(${game_results.length})`}
+                    </span>
+                }
+                isOpen={isOpen}
+                onToggle={toggleIsOpen}
+            >
                 <GameResults
                     users={users}
                     game_results={game_results}

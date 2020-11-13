@@ -18,6 +18,7 @@ export const CardList = ({
     return (
         $(`<div class="card-list ${className}">`).append(
             Collapsible({
+                className: "jq-collapsible-outlined",
                 collapsed_content: $(`<span>Karty zniżkowe (<strong>${user_entries_with_card.length}</strong>)</span>`),
                 content: [
                     $(`<div style="padding: 1em;">`).append(
@@ -36,15 +37,15 @@ export const CardList = ({
 }
 
 export const sync = ({old: old_card_list, new: new_card_list}) => {
-    const open = old_card_list.children('details.collapsible').attr('open') 
-    new_card_list.children('details.collapsible').attr('open', open)
+    const open = old_card_list.children('details.jq-collapsible').attr('open') 
+    new_card_list.children('details.jq-collapsible').attr('open', open)
 }
 
 
-const Collapsible = ({collapsed_content, content}) => (
-    $('<details class="collapsible">').append(
-        $('<summary class="collapsible-collapsed-content">').append(collapsed_content),
-        $('<div class="collapsible-content">').append(...content),
+const Collapsible = ({collapsed_content, content, className = ''}) => (
+    $(`<details class="jq-collapsible ${className}">`).append(
+        $('<summary class="jq-collapsible-collapsed-content">').append(collapsed_content),
+        $('<div class="jq-collapsible-content">').append(...content),
     )
 )
 
@@ -62,31 +63,44 @@ const card_list_style = `
 `
 
 const collapsible_style = `
-details.collapsible {
-}
+details.jq-collapsible {}
 
-details.collapsible > summary {
+/* hide details arrow */
+/* firefox */
+details.jq-collapsible > summary { list-style: none; }
+/* webkit */
+details.jq-collapsible > summary::-webkit-details-marker { display: none; }
+
+details.jq-collapsible > summary {
     display: block !important;
     width: 100%;
     padding: 1em;
-    outline: 1px solid ${RESERVISE_COLOURS.panel_border};
     cursor: pointer;
 }
 
-details.collapsible > summary:hover {
+details.jq-collapsible.jq-collapsible-outlined {
+    outline: 1px solid ${RESERVISE_COLOURS.panel_border};
+}
+
+details.jq-collapsible.jq-collapsible-outlined-tb {
+    border-top:    1px solid ${RESERVISE_COLOURS.panel_border};
+    border-bottom: 1px solid ${RESERVISE_COLOURS.panel_border};
+}
+
+details.jq-collapsible > summary:hover {
     background-color: ${RESERVISE_COLOURS.panel_hover};
 }
 
-details.collapsible > summary::after       {
+details.jq-collapsible > summary::after       {
     opacity: 0.35;
     float: right;
     transform: rotate(0deg);
     transition: transform 0.25s ease-in;
 }
-details.collapsible > summary::after       { content: '▼'; }
-details.collapsible[open] > summary::after { transform: rotate(180deg); }
+details.jq-collapsible > summary::after       { content: '▼'; }
+details.jq-collapsible[open] > summary::after { transform: rotate(180deg); }
 
-details.collapsible > .collapsible-content {
+details.jq-collapsible > .jq-collapsible-content {
     width: 100%;
     outline: 1px solid ${RESERVISE_COLOURS.panel_border};
     background-color: rgba(0,0,0, 0.03); 
