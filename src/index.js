@@ -461,7 +461,7 @@ window.BaseReservationEvent.prototype.render = function(event, element) {
                 : 'Unknown error'
         )
         console.error('Error fetching price info for event', event, err)
-        ui.show_error(msg)
+        // ui.show_error(msg)
     })
 }
 

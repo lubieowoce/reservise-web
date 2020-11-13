@@ -1,9 +1,10 @@
 import React, {
     useState, useEffect, useRef, useCallback, useMemo,
     Fragment,
+    forwardRef,
 } from 'react'
 import Autosuggest from 'react-autosuggest';
-import { noop } from 'lodash'
+import { noop, omit } from 'lodash'
 import { Popover } from 'react-tiny-popover'
 
 import { create_client } from './reservise-api'
@@ -366,7 +367,7 @@ const ClientInput = ({state, onChange}) => {
     //         transferFocus.current = false
     //     }
     // }, [transferFocus.current])
-    
+
     // console.log('<ClientInput>', state)
     const [focusRef, transferFocus] = useTransferFocus()
     return (
@@ -423,6 +424,7 @@ const ClientInput = ({state, onChange}) => {
                         borderBottomRightRadius: '0px',
                         borderRight: 'none',
                     }}
+                    ref={focusRef}
                 />
             )}
             {state.type === PickerState.CREATE && (
@@ -430,14 +432,17 @@ const ClientInput = ({state, onChange}) => {
                     <ClientEditor
                         {...state.data}
                         onChange={(update) => onChange({...state, data: {...state.data, ...update}})}
-                        onCancel={() => onChange({type: PickerState.SEARCH, search: state.originalSearch || ''})}
+                        onCancel={() => {
+                            onChange({type: PickerState.SEARCH, search: state.originalSearch || ''})
+                            transferFocus()
+                        }}
                         containerProps={{style: {
                             position: 'absolute', zIndex: 2000, top: '0', left: '0',
                             width: '100%',
                             background: 'white',
                             boxShadow: '0 10px 10px rgba(0,0,0, 0.15)',
                         }}}
-                        refs={{lastName: focusRef}}
+                        refs={{firstName: focusRef}}
                     />
                 </div>
             )}
@@ -446,11 +451,11 @@ const ClientInput = ({state, onChange}) => {
 }
 
 
-const FIELD_LABELS = {
-    lastName:  "Nazwisko",
-    firstName: "Imię",
-    phone:     "Telefon",
-    email:     "Email",
+const FIELD_INFO = {
+    lastName:  {label: "Nazwisko", placeholder: "Nazwisko"},
+    firstName: {label: "Imię",     placeholder: "Imię"},
+    phone:     {label: "Telefon",  placeholder: "Telefon"},
+    email:     {label: "Email",    placeholder: "Email"},
 }
 
 const ClientEditor = ({onChange, onCancel = noop, containerProps = {}, refs = null, ...props}) => {
@@ -460,9 +465,8 @@ const ClientEditor = ({onChange, onCancel = noop, containerProps = {}, refs = nu
             value: props[NAME],
             className: "form-control",
             onChange: ({target: {value}}) => onChange({...props, [NAME]: value}),
-            title: FIELD_LABELS[NAME],
-            placeholder: FIELD_LABELS[NAME],
-            style: {minWidth: '0', borderRadius: '0'},
+            placeholder: FIELD_INFO[NAME].placeholder,
+            style: {minWidth: '0', maxWidth: 'none', fontWeight: 'normal', width: '100%'},
         }
         if (refs && refs[NAME]) {
             res.ref = refs[NAME]
@@ -474,14 +478,19 @@ const ClientEditor = ({onChange, onCancel = noop, containerProps = {}, refs = nu
         }
         return res
     }
+    const labelProps = {style: {display: 'block'}}
+    const labelTextProps = {style: {opacity: '0.35'}}
     return (
         <div {...containerProps} >
-            <div style={{display: 'flex'}}>
-                <input {...textFieldProps('lastName',  {style: {flex: '50%'}})} />
-                <input {...textFieldProps('firstName', {style: {flex: '50%'}})} />
+            <div style={{padding: '0.5em'}}>
+                <div style={{display: 'flex'}}>
+                    <label {...labelProps}><span {...labelTextProps}>{FIELD_INFO['firstName'].label}</span> <input {...textFieldProps('firstName')} /> </label>
+                    <span style={{width: '0.3em'}}/>
+                    <label {...labelProps}><span {...labelTextProps}>{FIELD_INFO['lastName'].label}</span>  <input {...textFieldProps('lastName')} />  </label>
+                </div>
+                <label {...labelProps}><span {...labelTextProps}>{FIELD_INFO['phone'].label}</span> <input {...textFieldProps('phone')} /> </label>
+                <label {...labelProps}><span {...labelTextProps}>{FIELD_INFO['email'].label}</span> <input {...textFieldProps('email')} /> </label>
             </div>
-            <input {...textFieldProps('phone')} />
-            <input {...textFieldProps('email')} />
             <div style={{display: 'flex', justifyContent: 'space-between'}}>
                 {/*<Spinner style={{alignSelf: 'center', marginLeft: '12px'}}/>*/}
                 <span/>
@@ -505,10 +514,11 @@ const ClientEditor = ({onChange, onCancel = noop, containerProps = {}, refs = nu
 
 const ADD_CLIENT_ITEM = { isCreateClient: true, label: 'Stwórz klienta' }
 
-const ClientSearch = ({search, onSearchChanged, onSelect, onCreate, delay=300, ...props}) => {
+const ClientSearch = forwardRef(({search, onSearchChanged, onSelect, onCreate, delay=300, ...props}, ref) => {
     const [request, setRequest] = useState({state: 'done'})
     const [_suggestions, setSuggestions] = useState([])
     const suggestions = useMemo(() => [..._suggestions, ADD_CLIENT_ITEM], [_suggestions])
+    const [typedSearch, setTypedSearch] = useState("")
 
     const onFetch = ({value: search}) => {
         if (!search) { return }
@@ -554,7 +564,7 @@ const ClientSearch = ({search, onSearchChanged, onSelect, onCreate, delay=300, .
             // }
             getSuggestionValue={(item) =>
                 item.isCreateClient
-                    ? search
+                    ? typedSearch
                     : `${item.last_name} ${item.first_name}`
             }
             renderSuggestion={(item, {_query, _isHighlighted}) =>
@@ -572,13 +582,19 @@ const ClientSearch = ({search, onSearchChanged, onSelect, onCreate, delay=300, .
 
             // Autosuggest will pass through all these props to the input.
             inputProps={{
+                ref,
                 value: search,
-                onChange: (event, {newValue: newSearch}) => onSearchChanged(newSearch),
+                onChange: (event, {newValue: newSearch, method}) => {
+                    if (method === 'type') {
+                        setTypedSearch(newSearch)
+                    }
+                    onSearchChanged(newSearch)
+                },
                 ...props,
             }}
         />
     )
-}
+})
 
 const searchClients = (term) => {
     const controller = new AbortController()
