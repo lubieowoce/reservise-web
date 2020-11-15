@@ -6,7 +6,8 @@
   "scripts": {
     "build": "webpack --config webpack.config.cjs",
     "start": "webpack-dev-server --env.mode=development --config webpack.config.cjs",
-    "prepublish": "rm dist/* && npm run build"
+    "prepublish": "rm dist/* && npm run build",
+    "git-tag": "git tag \"v$(jq '.version' ./package.json -r)\""
   },
   "repository": {
     "type": "git",
