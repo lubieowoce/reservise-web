@@ -17,7 +17,7 @@ import * as annotations from './annotations'
 import { CardList } from './card-list'
 import * as card_list from './card-list'
 
-import { ClientData } from './client-data-widget'
+import { ClientData } from './components/client-data-widget'
 
 
 const popover_annotation_node = (popover) => {

@@ -7,8 +7,8 @@ import Autosuggest from 'react-autosuggest';
 import { noop, omit } from 'lodash'
 import { Popover } from 'react-tiny-popover'
 
-import { create_client } from './reservise-api'
-import { show_error } from './reservise-ui'
+import { create_client } from '../reservise-api'
+import { show_error } from '../reservise-ui'
 
 
 export const AddClient = ({
