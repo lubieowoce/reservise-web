@@ -14,9 +14,7 @@ import * as ui from './reservise-ui'
 import { VENUE_PRICE_INFO } from './price-info'
 import * as annotations from './annotations'
 
-import { CardList } from './card-list'
-import * as card_list from './card-list'
-
+import { CardList } from './components/card-list'
 import { ClientData } from './components/client-data-widget'
 
 
@@ -60,31 +58,6 @@ const write_popover_data = (popover, data) => {
 
 
 
-// inject a method to be called when an element
-//    <xyz smartforms-action="inject_custom_data">
-// is clicked.
-// (see SmartForm.setHandlers and SmartForm.handleActionClick)
-
-// when the user edits and saves the annotation,
-// we need to reinject the extracted data.
-// otherwise, all the custom data would be lost!
-
-// IDEA: SmartForm.transitionTo(new_state) calls this[old_state+"2"+new_state]
-// we could use this to inject some code to extract the stored data during init!
-
-$.fn.smartform.Constructor.prototype.inject_custom_data = function(_event) {
-    // console.log('SmartForm.inject_custom_data', this, _event)
-    // let data = this.$element.data('get_custom_data')()
-    let data = this.get_custom_data()
-    this.inputElements().val((_i, ann) => {
-        let ann_text = annotations.get_text(ann)
-        let new_ann = annotations.serialize(ann_text, data)
-        console.log('new annotation', new_ann)
-        return new_ann
-    })
-    // this.inputElements().val(new_ann)
-}
-
 
 const is_class_reservation  = (event) => event.client_list_url !== undefined
 const is_unavailability     = (event) => event.className.includes('unavailability')
@@ -107,11 +80,136 @@ const ORIGINAL = {
 }
 
 
+const patchSmartFormInput = ($annotationNode) => {
+    let [annotationText, annotationData] = annotations.parse($annotationNode.val())
+    $annotationNode.val(annotationText)
+
+    // see inject_custom_data(...) above for explanation
+
+    const $annotationFormNode = $annotationNode.closest('form')
+    const $annotationSaveInput = $annotationFormNode.find('[type="submit"]')
+    $annotationSaveInput.attr('smartform-action', "inject_custom_data")
+
+    return annotationData
+}
+
+
+// Smartform action callback.
+// Called when an element
+//    <input smartforms-action="inject_custom_data">
+// is clicked.
+// (see SmartForm.setHandlers and SmartForm.handleActionClick)
+
+// when the user edits and saves the annotation,
+// we need to reinject the extracted data.
+// otherwise, all the custom data would be lost!
+
+// IDEA: SmartForm.transitionTo(new_state) calls this[old_state+"2"+new_state]
+// we could use this to inject some code to extract the stored data during init!
+
+// $.fn.smartform.Constructor.prototype.inject_custom_data = function(_event) {
+const inject_custom_data = function(_event) {
+    // console.log('SmartForm.inject_custom_data', this, _event)
+    // let data = this.$element.data('get_custom_data')()
+    let data = this.get_custom_data()
+    this.inputElements().val((_i, ann) => {
+        let ann_text = annotations.get_text(ann)
+        let new_ann = annotations.serialize(ann_text, data)
+        console.log('new annotation', new_ann)
+        return new_ann
+    })
+    // this.inputElements().val(new_ann)
+}
+
+
+let ClientDataWrapper
+{
+    ClientDataWrapper = class {
+        constructor ({element, reservationOwner, data, onChange}) {
+            this.element = element
+            this.state = dataToState(data)
+            this.reservationOwner = reservationOwner
+            this.onChange = onChange
+            this.handleChange = this.handleChange.bind(this)
+        }
+
+        async render() {
+            return new Promise((resolve) =>
+                ReactDOM.render(
+                    <ClientData
+                        user_entries={this.state.user_entries}
+                        game_results={this.state.game_results}
+                        reservation_owner={this.reservationOwner}
+                        onChange={this.handleChange}
+                    />,
+                    this.element,
+                    resolve,
+                )
+            )
+        }
+
+        handleChange({user_entries, game_results}) {
+            let changed = false
+            if (user_entries) {
+                changed = true
+                this.state.user_entries = user_entries
+            }
+            if (game_results) {
+                changed = true
+                this.state.game_results = game_results
+            }
+            if (changed) {
+                // this.onChange({...this.state})
+                // let React rerender to show the changes and then persist
+                // the data to the events annotation, which destroys the popover
+                // DOM node and refetches it from the server.
+                setTimeout(() =>
+                    this.render().then(() =>
+                        this.onChange(stateToData(this.state))
+                    ),
+                    0
+                )
+            }
+        }
+
+        getData() {
+            return stateToData(this.state)
+        }
+        setData(data) {
+            this.state = dataToState(data)
+            this.render()
+        }
+
+    }
+
+
+    const dataToState = (data) => {
+        let {users: user_entries = [], game_results = []} = data || {}
+        return {user_entries, game_results}
+    }
+
+    const stateToData = (state) => {
+        const {user_entries, game_results} = state
+        const data = {}
+        if (user_entries && user_entries.length > 0) {
+            data.users = user_entries
+        }
+        if (game_results && game_results.length > 0) {
+            data.game_results = game_results
+        }
+        return (
+            (Object.keys(data).length === 0)
+                ? null
+                : data
+        )
+    }
+    
+}
+
 
 window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_func) {
     console.log('intercepted!', event_id)
     const self = new ORIGINAL.ReservationDetailsPopover(event_id, refetch_func, attachment_func);
-    // console.log('self', self)
 
     self.old_showPopover = self.showPopover
     self.showPopover = function () {
@@ -121,134 +219,56 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
     }
     self.show = self.showPopover // rebind alias
 
-    self.old_createPopoverContentFromResponse = self.createPopoverContentFromResponse
-    self.createPopoverContentFromResponse = function(responseData) {
-        // console.log('createPopoverContentFromResponse', self)
-        self.old_createPopoverContentFromResponse(responseData)
-        const popover  = self.popoverContent[0]
-        const $popover = $(popover)
-        // self.selected_price = $popover.find('[data-price-list-id]').attr('data-price-list-id')
-        const event = $popover.data('event')
-        if (event !== undefined && !is_single_reservation(event)) {
-            // console.log('createPopoverContentFromResponse :: not a single_reservation, ignoring', event)
-            return
-        }
-
-
-        const $ann_tag = $(get_event_details_uninited_annotation_node(popover))
-        let [ann_text, ann_data] = annotations.parse($ann_tag.val())
-        $ann_tag.val(ann_text)
-
-        const reservation_owner = reservation_owner_from_popover($popover)
-
-        const dataToState = (data) => {
-            let {users: user_entries = [], game_results = []} = data || {}
-            return {user_entries, game_results}
-        }
-
-        const stateToData = (state) => {
-            const {user_entries, game_results} = state
-            const data = {}
-            if (user_entries && user_entries.length > 0) {
-                data.users = user_entries
-            }
-            if (game_results && game_results.length > 0) {
-                data.game_results = game_results
-            }
-            return (
-                (Object.keys(data).length === 0)
-                    ? null
-                    : data
-            )
-        }
-
-
-
-        const $tab = $popover.find('#tab-information')
-
-        // CLIENT INPUT
-        
-        const $client_data_input = $(`
-            <div
-                style="
-                    margin-left: -10px;
-                    margin-right: -10px;
-                    margin-top: -10px;
-                    padding-bottom: 10px;
-                "
-            >
-            </div>
-        `)
-        $tab.prepend($client_data_input)
-
-        const state = dataToState(ann_data)
-
-        const onChange = ({user_entries, game_results}) => {
-            let changed = false
-            if (user_entries) {
-                changed = true
-                state.user_entries = user_entries
-            }
-            if (game_results) {
-                changed = true
-                state.game_results = game_results
-            }
-            if (changed) {
-                // let React rerender to show the changes and then persist
-                // the data to the events annotation, which destroys the popover
-                // DOM node and refetches it from the server.
-                setTimeout(() =>
-                    render_react_inputs(() =>
-                        write_popover_data(self, stateToData(state))
-                    ),
-                    0
-                )
-            }
-        }
-
-        const render_react_inputs = (...args) => {
-
-            ReactDOM.render(
-                <ClientData
-                    user_entries={state.user_entries}
-                    reservation_owner={reservation_owner}
-                    game_results={state.game_results}
-                    onChange={onChange}
-                />,
-                $client_data_input[0],
-                ...args,
-            )
-
-        }
-
-        render_react_inputs()
-
-
-        self.get_custom_data = () => stateToData(state)
-
-        // see inject_custom_data(...) above for explanation
-        const $ann_form = $ann_tag.closest('form')
-        const $save_ann = $ann_form.find('[type="submit"]')
-        $save_ann.attr('smartform-action', "inject_custom_data")
-    };
-
 
     self.old_afterReservationDetailsRender = self.afterReservationDetailsRender
     self.afterReservationDetailsRender = () => {
         // console.log('afterReservationDetailsRender', self)
+        
+        const popoverNode = self.popoverContent[0]
+        const $popoverNode = $(popoverNode)
+        const event = $popoverNode.data('event')
+        const shouldSkip = (event !== undefined && !is_single_reservation(event))
+
+        let widget
+        if (!shouldSkip) {
+            const $annotationNode = $(get_event_details_uninited_annotation_node(popoverNode))
+
+            const annData = patchSmartFormInput($annotationNode)
+            const reservationOwner = reservation_owner_from_popover($popoverNode)
+
+            const $tab = $popoverNode.find('#tab-information')
+            const $root = $(`
+                <div
+                    style="
+                        margin-left: -10px;
+                        margin-right: -10px;
+                        margin-top: -10px;
+                        padding-bottom: 10px;
+                    "
+                >
+                </div>
+            `)
+            $tab.prepend($root)
+            const node = $root[0]
+            
+            widget = new ClientDataWrapper({element: node, reservationOwner, data: annData,
+                onChange: (data) => write_popover_data(self, data)
+            })
+            widget.render()
+
+        }
         self.old_afterReservationDetailsRender()
 
-        let popover = self.popoverContent[0]
-        let $popover = $(popover)
-        let event = $popover.data('event')
-        // console.log('event', event)
-        if (event !== undefined && !is_single_reservation(event)) {
-            // console.log('afterReservationDetailsRender :: not a single_reservation, event, ignoring', event)
-            return
+        if (!shouldSkip) {
+            // const $smartformRoot = $(popover_annotation_node(self)).closest('[data-smartform-options]')
+            const annotationSmartform = $(popover_annotation_node(self)).data('bs.smartform')
+            annotationSmartform.inject_custom_data = inject_custom_data
+            annotationSmartform.get_custom_data = () => widget.getData()
+            annotationSmartform.$element.on('fetchsuccess.bs.smartform', function(_evt, data){
+                const annData = patchSmartFormInput(annotationSmartform.inputElements())
+                widget.setData(annData)
+            })
         }
-
-        let ann_sf = $(popover_annotation_node(self)).data('bs.smartform')
-        ann_sf.get_custom_data = () => self.get_custom_data()
     }
 
     return self
@@ -307,9 +327,9 @@ const reservation_owner_from_popover = ($popover) => {
 }
 
 
-const add_card_list = () => {
+const addCardList = () => {
     const today = window.calendar.date
-    const user_entries_with_card = (
+    const userEntriesWithCard = (
         Object.values(window.calendar.reservationsById)
             .filter((r) =>
                 r !== undefined &&
@@ -327,34 +347,31 @@ const add_card_list = () => {
             })
     )
 
-    const card_list_wrapper = $('#card-list-wrapper')
-    const old_card_list = card_list_wrapper.children('.card-list')
-    const attach = (
-        old_card_list.length > 0
-            ? (el) => old_card_list.replaceWith(el)
-            : (el) => card_list_wrapper.append(el)
-    )
-    const new_card_list = CardList({
-        user_entries: user_entries_with_card,
-        className: 'sidebar-section',
-        on_show_reservation: (event_id) => window.calendar.reservationsById[event_id].showDetailsPopover(),
-        on_sync_cards: async () => {
-            const result = await sync_card_annotations_with_reservation({
-                user_entries: user_entries_with_card,
-                dry_run: false
-            })
-            if (result.success) {
-                const {num_added} = result
-                ui.show_success(`Dodano ${num_added} kart zniżkowych`)
-            } else {
-                const {num_added, reason = ''} = result
-                ui.show_error(`Problem z synchronizacją kart zniżkowych: ${reason} (dodano ${num_added})`)
+    const cardListWrapper = document.getElementById('card-list-wrapper')
+    ReactDOM.render(
+        <CardList
+            userEntries={userEntriesWithCard}
+            className='sidebar-section'
+            onShowReservation={(event_id) =>
+                window.calendar.reservationsById[event_id].showDetailsPopover()
             }
-            ui.refetch_reservations()
-        },
-    })
-    card_list.sync({old: old_card_list, new: new_card_list})
-    attach(new_card_list)
+            onSyncCards={async () => {
+                const result = await sync_card_annotations_with_reservation({
+                    user_entries: userEntriesWithCard,
+                    dry_run: false
+                })
+                if (result.success) {
+                    const {num_added} = result
+                    ui.show_success(`Dodano ${num_added} kart zniżkowych`)
+                } else {
+                    const {num_added, reason = ''} = result
+                    ui.show_error(`Problem z synchronizacją kart zniżkowych: ${reason} (dodano ${num_added})`)
+                }
+                ui.refetch_reservations()
+            }}
+        />,
+        cardListWrapper
+    )
 }
 
 
@@ -385,14 +402,14 @@ window.calendar.feedReservationCache = function(data) {
 window.calendar.updateFullcalendar = function(...args) {
     console.log('updateFullcalendar')
     const res = ORIGINAL.calendar_updateFullcalendar(...args)
-    add_card_list()
+    addCardList()
     return res
 }
 
 window.calendar.reservationsUpdated = function(...args) {
     console.log('reservationsUpdated')
     const res = ORIGINAL.calendar_reservationsUpdated(...args)
-    add_card_list()
+    addCardList()
     return res
 }
 
@@ -430,8 +447,12 @@ window.BaseReservationEvent.prototype.render = function(event, element) {
     let annotation = this.event.annotation
     let is_paid = this.event.className.includes('rsv-paid')
 
-    let ann_data = annotation ? annotations.get_data(annotation) : {users: []}
-    let used_cards_num = count_cards(ann_data) || 0
+    const {users: user_entries = []} = (
+        annotation
+            ? (annotations.get_data(annotation) || {})
+            : {}
+    )
+    let used_cards_num = count_cards(user_entries) || 0
 
     // should only happen in development, during reloading
     if (event.price_info_promise === undefined) {
@@ -466,9 +487,9 @@ window.BaseReservationEvent.prototype.render = function(event, element) {
 }
 
 
-const count_cards = (ann_data) => {
-    if (ann_data) {
-        return ann_data.users.filter((e)=>e.card).length
+const count_cards = (user_entries) => {
+    if (user_entries) {
+        return user_entries.filter((e)=>e.card).length
     }
     return null
 }
@@ -533,17 +554,18 @@ const POPOVER_EXTRA_CSS = `
 `
 
 $(document).ready(() => {
-    let head = $('head')
+    const head = $('head')
     head.append($('<style id="card-info-badge-styles">').text(card_count_badge.style))
     head.append($('<style id="custom-styles">').text(CARNET_UNPAID_CSS))
     head.append($('<style id="popover-extra-styles">').text(POPOVER_EXTRA_CSS))
-    head.append($('<style id="collapsible-styles">').text(card_list.style))
+    head.append($('<style id="collapsible-styles">').text(CardList.style))
     head.append($('<style id="add-client-styles">').text(ClientData.style))
 
     ui.refresh_popovers()
     // window.calendar.updateFullcalendar()
     window.calendar.fetchReservations()
     window.calendar.HAS_ADD_CLIENTS = true
-    $('#tasks-wrapper').before('<div id="card-list-wrapper">')
-    add_card_list()
+    const cardList = $('<div id="card-list-wrapper">')
+    $('#tasks-wrapper').before(cardList)
+    addCardList()
 })
