@@ -13,8 +13,8 @@ export const CardList = ({
     const userEntriesWithCard = userEntries.filter((entry) => entry.card)
     const [isOpen, toggleOpen] = useToggle(false)
 
-    const Entry = ({event_id, user: {id, label}}) => (
-        <div key={`${event_id}-${id}`} className="card-list__entry" style={{display: 'flex', justifyContent: 'space-between'}}>
+    const makeEntry = ({event_id, user: {id, label}}, i) => (
+        <div key={`${event_id}-${id}-${i}`} className="card-list__entry" style={{display: 'flex', justifyContent: 'space-between'}}>
             <a href={`/clients/c/${id}/`} style={{overflow: 'hidden'}} target="blank">{label}</a>
             <a href="#" onClick={(e) => {e.preventDefault(); onShowReservation(event_id)}}>
                 <span className="glyphicon glyphicon-calendar"/>
@@ -32,7 +32,7 @@ export const CardList = ({
                     <span>Karty zniżkowe (<strong>{userEntriesWithCard.length}</strong>)</span>}
             >
                 <div style={{padding: '1em'}}>
-                    {userEntriesWithCard.map(Entry)}
+                    {userEntriesWithCard.map(makeEntry)}
                 </div>
                 <button className="btn" style={{display: 'block', width: '100%'}} onClick={onSyncCards}>
                     <span className="glyphicon glyphicon-refresh"></span>

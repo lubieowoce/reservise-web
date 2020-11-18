@@ -250,7 +250,7 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
             `)
             $tab.prepend($root)
             const node = $root[0]
-            
+
             widget = new ClientDataWrapper({element: node, reservationOwner, data: annData,
                 onChange: (data) => write_popover_data(self, data)
             })
@@ -333,8 +333,8 @@ const addCardList = () => {
         Object.values(window.calendar.reservationsById)
             .filter((r) =>
                 r !== undefined &&
-                r.event !== undefined
-                && today.isSame(r.event.start, 'day'))
+                r.event !== undefined &&
+                today.isSame(r.event.start, 'day'))
             .sort((ra, rb) => rb.event.start.diff(ra.event.start))
             .flatMap((r) => {
                 const event_id = r.event.id
@@ -346,7 +346,7 @@ const addCardList = () => {
                 )
             })
     )
-
+    
     const cardListWrapper = document.getElementById('card-list-wrapper')
     ReactDOM.render(
         <CardList
