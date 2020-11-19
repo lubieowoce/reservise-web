@@ -1,4 +1,3 @@
-// 2020.03.05-r1
 import React from 'react'
 import ReactDOM from 'react-dom'
 
@@ -458,7 +457,7 @@ window.BaseReservationEvent.prototype.render = function(event, element) {
     if (event.price_info_promise === undefined) {
         event.price_info_promise = api.fetch_event_price_info(event.id)
     }
-    
+
     let badge = card_count_badge.render({type: 'loading'})
     title.append(badge)
 
