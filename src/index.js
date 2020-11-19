@@ -438,40 +438,43 @@ window.BaseReservationEvent.prototype.render = function(event, element) {
     }
 
 
-    let title = this.element.find('.fc-event-title')
-    let title_text = title.find('div')
+    const title = this.element.find('.fc-event-title')
+    const title_text = title.find('div')
     title.css({display: 'flex', justifyContent: 'flex-end', alignItems: 'baseline'})
     title_text.css({marginLeft: 'auto', marginRight: 'auto'})
 
 
-    let annotation = this.event.annotation
-    let is_paid = this.event.className.includes('rsv-paid')
+    const annotation = this.event.annotation
+    const is_paid = this.event.className.includes('rsv-paid')
 
     const {users: user_entries = []} = (
         annotation
             ? (annotations.get_data(annotation) || {})
             : {}
     )
-    let used_cards_num = count_cards(user_entries) || 0
+    const used_cards_num = count_cards(user_entries) || 0
 
     // should only happen in development, during reloading
     if (event.price_info_promise === undefined) {
         event.price_info_promise = api.fetch_event_price_info(event.id)
     }
-    let pending_badge = card_count_badge.render({type: 'loading'})
-    title.append(pending_badge)
+    
+    let badge = card_count_badge.render({type: 'loading'})
+    title.append(badge)
 
     event.price_info_promise.then((info) => {
         // console.log('fetched price info for', event.id, $(event.title).text(), '->', info)
-        let badge_state = card_count_badge.compute_state({
+        const badge_state = card_count_badge.compute_state({
             used_cards_num: used_cards_num,
             is_paid: is_paid,
             price_list_id: info.price_list_id,
             carnets: info.carnets,
             venue_price_info: VENUE_PRICE_INFO[window.venue.id],
         })
-        let badge = card_count_badge.render(badge_state)
-        pending_badge.replaceWith(badge)
+        const new_badge = card_count_badge.render(badge_state)
+        badge.replaceWith(new_badge)
+        badge = new_badge
+
         if (info.carnets !== null) {
             element.addClass('rsv-has-carnet')
         }
@@ -481,6 +484,10 @@ window.BaseReservationEvent.prototype.render = function(event, element) {
                 ? err.message
                 : 'Unknown error'
         )
+        const new_badge = card_count_badge.render({type: 'error'})
+        badge.replaceWith(new_badge)
+        badge = new_badge
+
         console.error('Error fetching price info for event', event, err)
         // ui.show_error(msg)
     })

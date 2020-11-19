@@ -2,6 +2,7 @@
 badge:
     loading {}
     ready   {used: int, required: int, paid: bool}
+    unknown {msg: str}
     error   {msg: str}
 */
 
@@ -11,7 +12,7 @@ const { ich: ICH_templates } = window
 export const compute_state = ({used_cards_num, price_list_id, carnets, is_paid, venue_price_info}) => {
     let price_info = venue_price_info.prices[price_list_id]
     if (price_info === undefined) {
-        return {type: 'error', msg: `Unknown price (price_list_id: ${price_list_id})`}
+        return {type: 'unknown', msg: `Unknown price (price_list_id: ${price_list_id})`}
     } else {
         let required_cards_num
         if (is_paid || (!is_paid && carnets === null)) {
@@ -20,7 +21,7 @@ export const compute_state = ({used_cards_num, price_list_id, carnets, is_paid, 
             let carnet_type = Object.values(carnets)[0].type
             let carnet_price_info = venue_price_info.carnets[carnet_type]
             if (carnet_price_info === undefined) {
-                return {type: 'error', msg: `Unknown carnet (carnet_type: ${carnet_type})`}
+                return {type: 'unknown', msg: `Unknown carnet (carnet_type: ${carnet_type})`}
             }
             required_cards_num = carnet_price_info.cards
         }
@@ -50,10 +51,12 @@ export const render = (state) => {
         }
         if (!paid) { badge .addClass('guessed') }
 
-    } else if (state.type === 'error') {
-        let {_msg} = state
+    } else if (state.type === 'unknown') {
         badge = make_badge()
-        badge .text('×') .addClass('error') //.tooltip({title: msg, container: 'body'})
+        badge .text('?') .addClass('unknown')
+    } else if (state.type === 'error') {
+        badge = make_badge()
+        badge .text('!') .addClass('error')
     }
 
     return badge
@@ -72,6 +75,7 @@ export const style = `
     .badge.card-info-badge.fulfilled { background-color: gray;          opacity: 0.3; }
     .badge.card-info-badge.extra     { background-color: ${BOOTSTRAP_COLORS.success}; }
     .badge.card-info-badge.error     { background-color: gray;          opacity: 0.5; }
+    .badge.card-info-badge.unknown   { background-color: gray;          opacity: 0.3; }
 `
 
 const spinner_small = () => {
