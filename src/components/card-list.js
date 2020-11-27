@@ -16,7 +16,7 @@ export const CardList = ({
     const makeEntry = ({event_id, user: {id, label}}, i) => (
         <div key={`${event_id}-${id}-${i}`} className="card-list__entry" style={{display: 'flex', justifyContent: 'space-between'}}>
             <a href={`/clients/c/${id}/`} style={{overflow: 'hidden'}} target="blank">{label}</a>
-            <a href="#" onClick={(e) => {e.preventDefault(); onShowReservation(event_id)}}>
+            <a href="#" title="otwórz rezerwację" onClick={(e) => {e.preventDefault(); onShowReservation(event_id)}}>
                 <span className="glyphicon glyphicon-calendar"/>
             </a>
         </div>

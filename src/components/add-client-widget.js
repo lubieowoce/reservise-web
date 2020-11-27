@@ -9,6 +9,10 @@ import { Popover } from 'react-tiny-popover'
 
 import { create_client } from '../reservise-api'
 import { show_error } from '../reservise-ui'
+import {
+    IconButton,
+    GlyphIcon,
+} from './utils'
 
 
 export const AddClient = ({
@@ -267,18 +271,6 @@ const makeClientEntryEditor = ({SubmitButton, CancelButton}) => (
         )
     }
 )
-
-const IconButton = ({icon, label, ...props}) => {
-    return (
-        <button {...props}>
-            <div style={{display: 'flex', alignItems: 'center'}}>
-                {icon}<span style={{marginLeft: '0.7em'}}>{label}</span>
-            </div>
-        </button>
-    )
-}
-
-const GlyphIcon = ({name}) => <span className={`glyphicon glyphicon-${name}`} />
 
 const InlineClientEntryEditor = makeClientEntryEditor({
     SubmitButton: (props) => (

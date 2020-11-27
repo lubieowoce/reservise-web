@@ -1,4 +1,5 @@
 const path = require('path')
+const { CleanWebpackPlugin } = require('clean-webpack-plugin')
 
 module.exports = (env = {}) => {
 	const {mode = 'production'} = env
@@ -8,7 +9,10 @@ module.exports = (env = {}) => {
 		mode: mode,
 		// devtool: (isDev ? 'source-map' : false),
 		devtool: 'source-map',
-		entry: './src/index.js',
+		entry: {
+			'index':            './src/index.reservise-calendar.js', // back-compat with previous userscripts
+			'tournament-tools': './src/index.tournament-tools.js', 
+		},
 		module: {
 			rules: [
 				{
@@ -22,12 +26,16 @@ module.exports = (env = {}) => {
 			extensions: ['*', '.js'],
 		},
 		output: {
-			filename: 'index.js',
+			filename: '[name].js',
 			path: path.resolve(__dirname, 'dist'),
 		},
+		plugins: [
+			new CleanWebpackPlugin(),
+		],
 		devServer: {
 			contentBase: path.join(__dirname, 'dist'),
 			// compress: true,
+			hot: false,
 			port: 9000,
 			disableHostCheck: true,
 			headers: {

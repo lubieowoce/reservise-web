@@ -189,10 +189,66 @@ const _create_client = ({last_name, first_name, email = '', phone_number = ''}) 
 )
 
 const parseCreateClientFormErrors = (formText) => {
-    const form = $(`<div>${formText}</div>`)[0]
+    const form = document.createElement('div')
+    form.innerHTML = formText
     const messages = (
         [...form.querySelectorAll('.label.label-form-error')]
             .map((label) => label.innerText.trim())
+    )
+    form.remove()
+    return messages
+}
+
+export const get_client = async ({client_id}) => {
+    const data = await $ajax_promise({
+        type: 'GET',
+        url: `/clients/client/${client_id}/get/form/`,
+        dataType: 'json',
+    })
+    const client = parseClientForm(data.html)
+    client.id = client_id
+    return client
+}
+
+
+
+export const fetchAPI = (fetch) => ({
+    get_client: async ({client_id}) => {
+        const res = await fetch(`/clients/client/${client_id}/get/form/`)
+        const data = await res.json()
+        const client = parseClientForm(data.html)
+        client.id = client_id
+        return client
+    }
+})
+
+
+
+export const CLIENT_FIELDS = [
+    'first_name',
+    'last_name',
+    'email',
+    'phone_number',
+    'annotation',
+    // 'discount',
+    // 'enable_sms_notifications',
+    // 'enable_sms_marketing',
+    // 'enable_creating_reservations',
+    // 'is_new_player',
+    // 'birth_date',
+    // 'address',
+    // 'zip_code',
+    // 'groups',
+    // 'venue',
+]
+
+const parseClientForm = (formText) => {
+    const form = document.createElement('div')
+    form.innerHTML = formText
+    const messages = Object.fromEntries(
+        [...form.querySelectorAll('input[name],textarea[name]')]
+            .map((input) => [input.name, input.value])
+            .filter(([name,]) => CLIENT_FIELDS.includes(name))
     )
     form.remove()
     return messages

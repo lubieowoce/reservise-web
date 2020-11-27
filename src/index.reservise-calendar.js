@@ -14,6 +14,11 @@ import { VENUE_PRICE_INFO } from './price-info'
 import * as annotations from './annotations'
 
 import { CardList } from './components/card-list'
+import { MatchList } from './components/match-list'
+import * as matchList from './components/match-list'
+
+import { Provider } from 'react-redux'
+
 import { ClientData } from './components/client-data-widget'
 
 
@@ -326,18 +331,29 @@ const reservation_owner_from_popover = ($popover) => {
 }
 
 
-const addCardList = () => {
+let userFetchController = matchList.createFetchController()
+
+const renderSidebarComponents = () => {
     const today = window.calendar.date
-    const userEntriesWithCard = (
+    const reservationsToday = (
         Object.values(window.calendar.reservationsById)
             .filter((r) =>
                 r !== undefined &&
                 r.event !== undefined &&
                 today.isSame(r.event.start, 'day'))
             .sort((ra, rb) => rb.event.start.diff(ra.event.start))
+            .map((r) => ({...r, data: annotations.get_data(r.event.annotation)}))
+    )
+
+    const onShowReservation = (event_id) => (
+        window.calendar.reservationsById[event_id].showDetailsPopover()
+    )
+
+    const userEntriesWithCard = (
+        reservationsToday
             .flatMap((r) => {
                 const event_id = r.event.id
-                const data = annotations.get_data(r.event.annotation)
+                const data = r.data
                 if (!data) { return [] }
                 return (data.users
                     .filter((entry) => entry.card)
@@ -351,9 +367,7 @@ const addCardList = () => {
         <CardList
             userEntries={userEntriesWithCard}
             className='sidebar-section'
-            onShowReservation={(event_id) =>
-                window.calendar.reservationsById[event_id].showDetailsPopover()
-            }
+            onShowReservation={onShowReservation}
             onSyncCards={async () => {
                 const result = await sync_card_annotations_with_reservation({
                     user_entries: userEntriesWithCard,
@@ -370,6 +384,33 @@ const addCardList = () => {
             }}
         />,
         cardListWrapper
+    )
+
+    const matchListWrapper = document.getElementById('match-list-wrapper')
+
+    let matches = []
+    for (const r of reservationsToday) {
+        const event = r.event
+        const data = r.data
+        if (!data || !data.users || !data.game_results) { continue }
+        for (const match of data.game_results) {
+            matches.push({event, match})
+        }
+    }
+
+    // userFetchController.dispatch(
+    //     matchList.requestUsers({userIds: matchList.usersFromMatches(matches)})
+    // )
+
+    ReactDOM.render(
+        <Provider store={userFetchController}>
+            <MatchList
+                matches={matches}
+                // className='sidebar-section'
+                // onShowReservation={onShowReservation}
+            />
+        </Provider>,
+        matchListWrapper
     )
 }
 
@@ -401,14 +442,14 @@ window.calendar.feedReservationCache = function(data) {
 window.calendar.updateFullcalendar = function(...args) {
     console.log('updateFullcalendar')
     const res = ORIGINAL.calendar_updateFullcalendar(...args)
-    addCardList()
+    renderSidebarComponents()
     return res
 }
 
 window.calendar.reservationsUpdated = function(...args) {
     console.log('reservationsUpdated')
     const res = ORIGINAL.calendar_reservationsUpdated(...args)
-    addCardList()
+    renderSidebarComponents()
     return res
 }
 
@@ -564,14 +605,19 @@ $(document).ready(() => {
     head.append($('<style id="card-info-badge-styles">').text(card_count_badge.style))
     head.append($('<style id="custom-styles">').text(CARNET_UNPAID_CSS))
     head.append($('<style id="popover-extra-styles">').text(POPOVER_EXTRA_CSS))
-    head.append($('<style id="collapsible-styles">').text(CardList.style))
-    head.append($('<style id="add-client-styles">').text(ClientData.style))
+    head.append($('<style id="card-list-styles">').text(CardList.style))
+    head.append($('<style id="match-list-styles">').text(MatchList.style))
+    head.append($('<style id="client-data-styles">').text(ClientData.style))
 
     ui.refresh_popovers()
     // window.calendar.updateFullcalendar()
     window.calendar.fetchReservations()
     window.calendar.HAS_ADD_CLIENTS = true
     const cardList = $('<div id="card-list-wrapper">')
+    const matchList = $('<div id="match-list-wrapper">')
     $('#tasks-wrapper').before(cardList)
-    addCardList()
+    $('#tasks-wrapper').before(matchList)
+    renderSidebarComponents()
+
+    window.reservise_api = api
 })
