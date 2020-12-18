@@ -6,7 +6,7 @@
   "scripts": {
     "build": "webpack --config webpack.config.cjs",
     "start": "webpack-dev-server --env.mode=development --config webpack.config.cjs",
-    "prepublish": "npm run build",
+    "prepublishOnly": "npm run build",
     "git-tag": "git tag \"v$(jq '.version' ./package.json -r)\""
   },
   "repository": {
@@ -33,11 +33,11 @@
     "immutable": "^4.0.0-rc.12",
     "lodash": "^4.17.20",
     "react": "^17.0.1",
-    "react-autosuggest": "^10.0.3",
+    "react-autosuggest": "^10.0.4",
     "react-dom": "^17.0.1",
     "react-redux": "^7.2.2",
     "react-tabs": "^3.1.1",
-    "react-tiny-popover": "^6.0.0-beta.2",
+    "react-tiny-popover": "^6.0.2",
     "redux": "^4.0.5",
     "redux-thunk": "^2.3.0"
   }
