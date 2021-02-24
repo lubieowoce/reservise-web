@@ -53,7 +53,7 @@ const addPasteInput = () => {
 
     $(el).css({position: 'fixed', top: '45px', right: '5px'})
     document.body.appendChild(el)
-    console.log('injected button', pasteInput)
+    console.log('injected input', pasteInput)
 }
 
 
