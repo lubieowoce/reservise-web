@@ -161,7 +161,7 @@ export const create_client = (client_data) => {
     })
 }
 
-const _create_client = ({last_name, first_name, email = '', phone_number = ''}) => (
+const _create_client = ({last_name, first_name, email = '', phone_number = '', annotation = ''}) => (
     $ajax_promise({
         type: 'GET', url: '/clients/create/client/', dataType: 'json',
     }).then((data)=> {
@@ -171,7 +171,7 @@ const _create_client = ({last_name, first_name, email = '', phone_number = ''}) 
         }
         return $ajax_promise({type: 'POST', url: '/clients/create/client/',  dataType: 'json', data: {
             csrfmiddlewaretoken: csrf,
-            annotation: '',
+            annotation,
             first_name,
             last_name,
             email,

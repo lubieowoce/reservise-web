@@ -201,7 +201,7 @@ const makeClientEntryEditor = ({SubmitButton, CancelButton}) => (
                 user = pickerState.user
                 // onSubmit({user: pickerState.user, hasCard})
             } else if (pickerState.type === PickerState.CREATE) {
-                const {lastName, firstName, email = '', phone = ''} = pickerState.data
+                const {lastName, firstName, email = '', phone = '', annotation = ''} = pickerState.data
                 // TODO: error message?
                 let response
                 try {
@@ -210,6 +210,7 @@ const makeClientEntryEditor = ({SubmitButton, CancelButton}) => (
                         first_name:   firstName,
                         email:        email,
                         phone_number: phone,
+                        annotation,
                     })
                 } catch (err) {
                     console.error('Error submitting user', pickerState.data, err)
@@ -444,10 +445,11 @@ const ClientInput = ({state, onChange}) => {
 
 
 const FIELD_INFO = {
-    lastName:  {label: "Nazwisko", placeholder: "Nazwisko"},
-    firstName: {label: "Imię",     placeholder: "Imię"},
-    phone:     {label: "Telefon",  placeholder: "Telefon"},
-    email:     {label: "Email",    placeholder: "Email"},
+    lastName:   {label: "Nazwisko", placeholder:  "Nazwisko"},
+    firstName:  {label: "Imię",     placeholder:  "Imię"},
+    phone:      {label: "Telefon",  placeholder:  "Telefon"},
+    email:      {label: "Email",    placeholder:  "Email"},
+    annotation: {label: "Adnotacja", placeholder: "Adnotacja do klienta"},
 }
 
 const ClientEditor = ({onChange, onCancel = noop, containerProps = {}, refs = null, ...props}) => {
@@ -482,6 +484,7 @@ const ClientEditor = ({onChange, onCancel = noop, containerProps = {}, refs = nu
                 </div>
                 <label {...labelProps}><span {...labelTextProps}>{FIELD_INFO['phone'].label}</span> <input {...textFieldProps('phone')} /> </label>
                 <label {...labelProps}><span {...labelTextProps}>{FIELD_INFO['email'].label}</span> <input {...textFieldProps('email')} /> </label>
+                <label {...labelProps}><span {...labelTextProps}>{FIELD_INFO['annotation'].label}</span> <textarea {...textFieldProps('annotation', {style: {resize: 'none', height: 'auto'}})} rows="1" /> </label>
             </div>
             <div style={{display: 'flex', justifyContent: 'space-between'}}>
                 {/*<Spinner style={{alignSelf: 'center', marginLeft: '12px'}}/>*/}
