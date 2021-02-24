@@ -8,6 +8,7 @@ import {
 } from './utils'
 
 import * as card_count_badge from './card-count-badge'
+import { scoreIndicator } from './score-indicator'
 import * as api from './reservise-api'
 import * as ui from './reservise-ui'
 import { VENUE_PRICE_INFO } from './price-info'
@@ -481,13 +482,13 @@ window.BaseReservationEvent.prototype.render = function(event, element) {
     const title = this.element.find('.fc-event-title')
     const title_text = title.find('div')
     title.css({display: 'flex', justifyContent: 'flex-end', alignItems: 'baseline'})
-    title_text.css({marginLeft: 'auto', marginRight: 'auto'})
+    title_text.css({marginLeft: 'auto', marginRight: 'auto', padding: '0 0.5ch'})
 
 
     const annotation = this.event.annotation
     const is_paid = this.event.className.includes('rsv-paid')
 
-    const {users: user_entries = []} = (
+    const {users: user_entries = [], game_results: scores = []} = (
         annotation
             ? (annotations.get_data(annotation) || {})
             : {}
@@ -498,6 +499,24 @@ window.BaseReservationEvent.prototype.render = function(event, element) {
     if (event.price_info_promise === undefined) {
         event.price_info_promise = api.fetch_event_price_info(event.id)
     }
+
+    this.element.find('.fc-event-inner').append(
+        scoreIndicator({
+            numPeople: new Set(user_entries.map((e) => e.user.id)).size,
+            numScores: scores.length,
+            colors: {
+                // missing: '#000099',
+                noPeople: 'white',
+                noScores: '#000099',
+                // missing: 'rgb(0, 123, 255)',
+                // ok: '#000099',
+                ok: 'rgba(0,0,0,0)',
+            },
+            size: 9,
+            style: {position: 'absolute', top: '0px', left: '0px'},
+            // style: {position: 'absolute', bottom: '0px', right: '0px'},
+        })
+    )
 
     let badge = card_count_badge.render({type: 'loading'})
     title.append(badge)
@@ -600,11 +619,28 @@ const POPOVER_EXTRA_CSS = `
 }
 `
 
+const EVENT_EXTRA_CSS = `
+/* disable 1px padding in .fc-event, because it offsets scoreIndicator */
+.fc-event {
+    padding: 0;
+}
+
+/* make the color of online reservations more consistent with the rest */
+.fitnessPanel.rsv-online, .rsv-online, .fc-event.rsv-online {
+    background: #71c9ff;
+    -webkit-box-shadow: inset 0px 5px 0px 0px rgb(96, 168, 210);
+    -moz-box-shadow: inset 0px 5px 0px 0px rgb(96, 168, 210);
+    box-shadow: inset 0px 5px 0px 0px rgb(96, 168, 210);
+    color: #005b90;
+}
+`
+
 $(document).ready(() => {
     const head = $('head')
     head.append($('<style id="card-info-badge-styles">').text(card_count_badge.style))
     head.append($('<style id="custom-styles">').text(CARNET_UNPAID_CSS))
     head.append($('<style id="popover-extra-styles">').text(POPOVER_EXTRA_CSS))
+    head.append($('<style id="event-extra-styles">').text(EVENT_EXTRA_CSS))
     head.append($('<style id="card-list-styles">').text(CardList.style))
     head.append($('<style id="match-list-styles">').text(MatchList.style))
     head.append($('<style id="client-data-styles">').text(ClientData.style))
