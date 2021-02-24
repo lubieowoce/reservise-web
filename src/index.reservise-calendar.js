@@ -487,6 +487,7 @@ window.BaseReservationEvent.prototype.render = function(event, element) {
 
     const annotation = this.event.annotation
     const is_paid = this.event.className.includes('rsv-paid')
+    const is_absent = this.event.className.includes('rsv-not-played')
 
     const {users: user_entries = [], game_results: scores = []} = (
         annotation
@@ -499,24 +500,17 @@ window.BaseReservationEvent.prototype.render = function(event, element) {
     if (event.price_info_promise === undefined) {
         event.price_info_promise = api.fetch_event_price_info(event.id)
     }
-
-    this.element.find('.fc-event-inner').append(
-        scoreIndicator({
-            numPeople: new Set(user_entries.map((e) => e.user.id)).size,
-            numScores: scores.length,
-            colors: {
-                // missing: '#000099',
-                noPeople: 'white',
-                noScores: '#000099',
-                // missing: 'rgb(0, 123, 255)',
-                // ok: '#000099',
-                ok: 'rgba(0,0,0,0)',
-            },
-            size: 9,
-            style: {position: 'absolute', top: '0px', left: '0px'},
-            // style: {position: 'absolute', bottom: '0px', right: '0px'},
-        })
-    )
+    if (!is_absent) {
+        this.element.find('.fc-event-inner').append(
+            scoreIndicator({
+                numPeople: new Set(user_entries.map((e) => e.user.id)).size,
+                numScores: scores.length,
+                size: 9,
+                style: {position: 'absolute', top: '0px', left: '0px'},
+                // style: {position: 'absolute', bottom: '0px', right: '0px'},
+            })
+        )
+    }
 
     let badge = card_count_badge.render({type: 'loading'})
     title.append(badge)
