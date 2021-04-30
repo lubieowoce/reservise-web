@@ -106,12 +106,12 @@ const parse_class_reservation = (modal) => {
 export const add_class_reservation = ({client_id, event_id, price_list_id, price = ''}) => {
     let add_client_url = `/events/create_class_reservation/?event_id=${event_id}`
     return $ajax_promise({type: 'GET', url: add_client_url, dataType: 'json', }).then((data) => {
-        let [, csrf = null] = data.html.match(/<input type='hidden' name='csrfmiddlewaretoken' value='(.+?)'/) || []
-        if (!csrf) {
+        const token = extractCSRFToken(data.html)
+        if (!token) {
             throw new Error('no csrf token found' + JSON.stringify(data))
         }
         return $ajax_promise({type: 'POST', url: '/events/create_class_reservation/',  dataType: 'json', data: {
-            csrfmiddlewaretoken: csrf,
+            csrfmiddlewaretoken: token,
             event_id,
             user_profile: client_id,
             price_list: `${price};${price_list_id}`,
@@ -164,13 +164,13 @@ export const create_client = (client_data) => {
 const _create_client = ({last_name, first_name, email = '', phone_number = '', annotation = ''}) => (
     $ajax_promise({
         type: 'GET', url: '/clients/create/client/', dataType: 'json',
-    }).then((data)=> {
-        let [, csrf] = data.html.match(/<input type='hidden' name='csrfmiddlewaretoken' value='(.+?)'/) || []
-        if (!csrf) {
+    }).then((data) => {
+        const token = extractCSRFToken(data.html)
+        if (!token) {
             throw new Error('INTERNAL ERROR: no csrf token found in response: ' + JSON.stringify(data))
         }
         return $ajax_promise({type: 'POST', url: '/clients/create/client/',  dataType: 'json', data: {
-            csrfmiddlewaretoken: csrf,
+            csrfmiddlewaretoken: token,
             annotation,
             first_name,
             last_name,
@@ -252,4 +252,9 @@ const parseClientForm = (formText) => {
     )
     form.remove()
     return messages
+}
+
+const extractCSRFToken = (text) => {
+    const [, csrf] = text.match(/<input type=['"]hidden['"] name=['"]csrfmiddlewaretoken['"] value=['"](.+?)['"]/) || []
+    return csrf
 }
