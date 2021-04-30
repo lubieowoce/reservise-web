@@ -216,20 +216,12 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
     console.log('intercepted!', event_id)
     const self = new ORIGINAL.ReservationDetailsPopover(event_id, refetch_func, attachment_func);
 
-    self.old_showPopover = self.showPopover
-    self.showPopover = function () {
-        self.old_showPopover()
-        let popover = self.popoverContent[0]
-        popover.focus() // doesn't seem to have any effect, maybe it's not visible yet?
-    }
-    self.show = self.showPopover // rebind alias
-
-
     self.old_afterReservationDetailsRender = self.afterReservationDetailsRender
     self.afterReservationDetailsRender = () => {
         // console.log('afterReservationDetailsRender', self)
         
         const popoverNode = self.popoverContent[0]
+
         const $popoverNode = $(popoverNode)
         const event = $popoverNode.data('event')
         const shouldSkip = (event !== undefined && !is_single_reservation(event))
@@ -275,6 +267,26 @@ window.ReservationDetailsPopover = function (event_id, refetch_func, attachment_
             })
         }
     }
+
+    self.old_showPopover = self.showPopover
+    self.showPopover = function () {
+        self.old_showPopover()
+        let popover = self.popoverContent[0]
+        popover.setAttribute('tabindex', '-1') // make popover focusable: https://stackoverflow.com/a/3656524
+        popover.focus()
+
+        popover.addEventListener('keyup', function(evt) {
+            if (evt.key === 'Escape') {
+                if (event.target.matches('input:not([type="button"]), textarea, select')) {
+                    // "escape" from some child input - blur it
+                    popover.focus()
+                } else {
+                    self.destroy()            
+                }
+            }
+        })
+    }
+    self.show = self.showPopover // rebind alias
 
     return self
 }
