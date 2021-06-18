@@ -10,8 +10,9 @@ module.exports = (env = {}) => {
 		// devtool: (isDev ? 'source-map' : false),
 		devtool: 'source-map',
 		entry: {
-			'index':            './src/index.reservise-calendar.js', // back-compat with previous userscripts
-			'tournament-tools': './src/index.tournament-tools.js', 
+			'index':             './src/index.reservise-calendar.js', // back-compat with previous userscripts
+			'reservise-clients': './src/index.reservise-clients.js',
+			'tournament-tools':  './src/index.tournament-tools.js', 
 		},
 		module: {
 			rules: [
