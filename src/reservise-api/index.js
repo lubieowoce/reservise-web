@@ -1,4 +1,4 @@
-import { $ajax_promise } from './utils'
+import { $ajax_promise } from '../utils'
 
 
 const html_entities_decode = (s) => $("<div>").html(s).text()
