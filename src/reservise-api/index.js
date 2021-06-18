@@ -1,5 +1,6 @@
 import { $ajax_promise } from '../utils'
 
+export * from './subscriptions'
 
 const html_entities_decode = (s) => $("<div>").html(s).text()
 

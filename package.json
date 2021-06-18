@@ -30,7 +30,9 @@
     "webpack-dev-server": "^3.11.0"
   },
   "dependencies": {
+    "date-fns": "^2.22.1",
     "immutable": "^4.0.0-rc.12",
+    "js-cookie": "^2.2.1",
     "lodash": "^4.17.20",
     "react": "^17.0.1",
     "react-autosuggest": "^10.0.4",
@@ -39,6 +41,7 @@
     "react-tabs": "^3.1.1",
     "react-tiny-popover": "^6.0.2",
     "redux": "^4.0.5",
-    "redux-thunk": "^2.3.0"
+    "redux-thunk": "^2.3.0",
+    "wait-for-element": "^1.0.2"
   }
 }
