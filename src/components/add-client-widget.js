@@ -616,7 +616,8 @@ const SEARCH_THEME = {
 
 ClientSearch.style = `
     .react-tiny-popover-container {
-        z-index: 2000;
+        /* display above reservise's .popover, which has z-index: 99999 */
+        z-index: 1000000;
     }
 
     .react-autosuggest__container {
