@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "webpack --config webpack.config.cjs",
-    "start": "webpack-dev-server --env.mode=development --config webpack.config.cjs",
+    "dev": "webpack-dev-server --env.mode=development --config webpack.config.cjs",
     "prepublishOnly": "npm run build",
     "git-tag": "git tag \"v$(jq '.version' ./package.json -r)\""
   },
