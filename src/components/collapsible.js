@@ -1,35 +1,34 @@
-
-import React, {
-    useState, useCallback,
-} from 'react'
+import React, { useState, useCallback } from "react";
 
 export const Collapsible = ({
-        content,
-        isOpen=false,
-        onToggle,
-        children,
-        className="",
-        ...props
-    }) => (
-    <details className={`collapsible ${className}`} open={isOpen} onToggle={onToggle} {...props}>
-        <summary>{content}</summary>
-        <div className="collapsible-content">
-            {children}
-        </div>
-    </details>
-)
+  content,
+  isOpen = false,
+  onToggle,
+  children,
+  className = "",
+  ...props
+}) => (
+  <details
+    className={`collapsible ${className}`}
+    open={isOpen}
+    onToggle={onToggle}
+    {...props}
+  >
+    <summary>{content}</summary>
+    <div className="collapsible-content">{children}</div>
+  </details>
+);
 
 export const useToggle = (initial) => {
-    const [value, setValue] = useState(initial)
-    const toggleValue = useCallback(() => setValue((prev) => !prev), [])
-    return [value, toggleValue]
-}
-
+  const [value, setValue] = useState(initial);
+  const toggleValue = useCallback(() => setValue((prev) => !prev), []);
+  return [value, toggleValue];
+};
 
 const RESERVISE_COLOURS = {
-    panel_hover: '#fafafa',
-    panel_border: '#c5c5c5',
-}
+  panel_hover: "#fafafa",
+  panel_border: "#c5c5c5",
+};
 
 Collapsible.style = `
 details.collapsible {}
@@ -82,4 +81,4 @@ details.collapsible.collapsible-outlined-tb .collapsible-content {
     border-top:    1px solid rgba(0,0,0, 0.1);
     /* border-bottom: 1px solid rgba(0,0,0, 0.1); */
 }
-`
+`;

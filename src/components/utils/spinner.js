@@ -1,23 +1,26 @@
-import React, { useMemo } from 'react'
+import React, { useMemo } from "react";
 
 // Source
 // https://loading.io/css/
 
-export const Spinner = ({color = "#fff"}) => {
-	const divStyle = useMemo(() => ({
-		border: `8px solid ${color}`,
-		borderColor: `${color} transparent transparent transparent`,
-	}), [color])
+export const Spinner = ({ color = "#fff" }) => {
+  const divStyle = useMemo(
+    () => ({
+      border: `8px solid ${color}`,
+      borderColor: `${color} transparent transparent transparent`,
+    }),
+    [color]
+  );
 
-	return (
-		<div className="lds-ring">
-			<div style={divStyle}></div>
-			<div style={divStyle}></div>
-			<div style={divStyle}></div>
-			<div style={divStyle}></div>
-		</div>
-	)
-}
+  return (
+    <div className="lds-ring">
+      <div style={divStyle}></div>
+      <div style={divStyle}></div>
+      <div style={divStyle}></div>
+      <div style={divStyle}></div>
+    </div>
+  );
+};
 
 Spinner.style = `
 .lds-ring {
@@ -55,4 +58,4 @@ Spinner.style = `
         transform: rotate(360deg);
     }
 }
-`
+`;
