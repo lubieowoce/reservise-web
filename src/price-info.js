@@ -1,12 +1,37 @@
+/*
+
+to extract info about a price list, go to a "Pricing plan" in the management tab
+(e.g. https://reservise.com/management/pricingplan/359/)
+
+and run
+
+```js
+{
+  const list = document.querySelector('.objects-list ul')
+  const data = [...list.querySelectorAll('a')].map((e) => ({ name: e.innerText.trim(), id: e.href.match(/(\d+)/)[1] }))
+  console.log(Object.fromEntries(data.map((e) => [e.id, { name: e.name, cards: null }])))
+}
+```
+
+then, edit as needed and paste here
+
+*/
+
 export const VENUE_PRICE_INFO = {
   80: {
     name: "SquashCity Jerozolimskie 200",
     class_prices: {
       benefit: 1646,
     },
-    price_default: 1707,
+    price_default: 5163,
     prices: {
       null: { cards: 0, name: "Własna cena" },
+
+      //======================================================
+      // Old
+      // https://reservise.com/management/pricingplan/359/
+      //======================================================
+
       1707: { cards: 0, name: "Cennik Standardowy" },
       1708: {
         cards: 1,
@@ -41,6 +66,108 @@ export const VENUE_PRICE_INFO = {
       1918: { cards: 0, name: "Cennik trenerski" },
       3107: { cards: 0, name: "DoRozliczenia" },
       2380: { cards: 0, name: "__Goodie z kodem" },
+
+      //======================================================
+      // Some weird intermediate garbage
+      // https://reservise.com/management/pricingplan/634/
+      //======================================================
+
+      2673: {
+        cards: 0,
+        name: "Karnet 10 h",
+      },
+      2674: {
+        cards: 0,
+        name: "Karnet 5h",
+      },
+      2675: {
+        cards: 0,
+        name: "Open Juniorzy, Studenci (<26 l) - karnet 10h",
+      },
+      2676: {
+        cards: 0,
+        name: "Open Juniorzy, Studenci (<26 l) - karnet 5h",
+      },
+      2677: {
+        cards: 0,
+        name: "Cennik Standardowy",
+      },
+      2678: {
+        cards: 0,
+        name: "Cennik trenerski",
+      },
+      2683: {
+        cards: 1,
+        name: "Mam 1 Kartę Multisport Plus/FitProfit/OK System",
+      },
+      2684: {
+        cards: 2,
+        name: "Mam 2 Karty MultiSport Plus/FitProfit/OK System",
+      },
+      2685: {
+        cards: 1,
+        name: "Mam 1 Kartę OK System Gold",
+      },
+      2686: {
+        cards: 1,
+        name: "Karnet 5h - 1 karta zniżkowa",
+      },
+      2687: {
+        cards: 1,
+        name: "Karnet 10h - 1 karta zniżkowa",
+      },
+      2688: {
+        cards: 2,
+        name: "Karnet 10h - 2 karty zniżkowe",
+      },
+      2743: {
+        cards: 0,
+        name: "Juniorzy, Studenci (<26l)",
+      },
+      2988: {
+        cards: 0,
+        name: "Korty dla Pań 25 zł (28-29-.09.19)",
+      },
+      2989: {
+        cards: 0,
+        name: "Korty dla Pań 25 zł z kartą zniżkową (28-29-.09.19)",
+      },
+
+      //======================================================
+      // 2024
+      // https://reservise.com/management/pricingplan/1145/
+      //======================================================
+
+      5163: { cards: 0, name: "Cennik Standardowy" },
+      5164: {
+        cards: 1,
+        name: "Mam 1 Kartę MultiSport Plus/FitProfit/Medicover Sport",
+      },
+      5165: {
+        cards: 2,
+        name: "Mam 2 Karty MultiSport Plus/FitProfit/Medicover Sport",
+      },
+      5166: { cards: 0, name: "Juniorzy, Studenci (<26l)" },
+      5167: {
+        cards: 1,
+        name: "Juniorzy, Studenci (<26l) - 1 Karta MultiSport Plus/FitProfit/Medicover Sport",
+      },
+      5168: {
+        cards: 2,
+        name: "Juniorzy, Studenci (<26l) - 2 karty MultiSport Plus/FitProfit/Medicover Sport",
+      },
+      5169: { cards: 0, name: "Cennik trenerski" },
+      5170: { cards: 0, name: "ROZLICZENIA-LIGI" },
+      5177: { cards: 0, name: "Karnet 10h" },
+      5178: { cards: 1, name: "Karnet 10h - 1 karta zniżkowa" },
+      5179: { cards: 2, name: "Karnet 10h - 2 karty zniżkowe" },
+      5180: { cards: 0, name: "Karnet 5h" },
+      5181: { cards: 1, name: "Karnet 5h - 1 karta zniżkowa" },
+      5182: { cards: 0, name: "karnet 10h Juniorzy, Studenci (<26 l)" },
+      5183: {
+        cards: 1,
+        name: "karnet 10h Juniorzy, Studenci (<26 l) - 1 karta zniżkowa",
+      },
     },
     carnets: {
       355: { cards: 0, name: "Karnet OPEN 5h, pn-pt 9-17" },
@@ -79,6 +206,52 @@ export const VENUE_PRICE_INFO = {
         name: "Karnet OPEN 10h, pn-pt 17-23 + 2 karty zniżkowe",
       },
       504: { cards: 2, name: "Karnet OPEN 10h, pn-pt 9-17 + 2 karty zniżkowe" },
+
+      //==================
+      // 2024
+      //==================
+
+      1374: { cards: 0, name: "Carnet OPEN 10h, pn-pt 7-9 (450.00) 112days" },
+      1375: { cards: 0, name: "Carnet OPEN 10h, pn-pt 9-17 (350.00) 112days" },
+      1376: { cards: 0, name: "Carnet OPEN 10h, pn-pt 17-23 (650.00) 112days" },
+      1377: { cards: 0, name: "Carnet OPEN 10h, sb-nd (550.00) 112days" },
+      1378: {
+        cards: 1,
+        name: "Carnet OPEN 10h, pn-pt 7-9 + 1 karta zniżkowa (300.00) 112days",
+      },
+      1379: {
+        cards: 1,
+        name: "Carnet OPEN 10h, pn-pt 9-17 + 1 karta zniżkowa (200.00) 112days",
+      },
+      1380: {
+        cards: 1,
+        name: "Carnet OPEN 10h, pn-pt 17-23 + 1 karta zniżkowa (500.00) 112days",
+      },
+      1381: {
+        cards: 1,
+        name: "Carnet OPEN 10h, sb-nd + 1 karta zniżkowa (400.00) 112days",
+      },
+      1382: {
+        cards: 2,
+        name: "Carnet OPEN 10h, pn-pt 7-9 + 2 karty zniżkowe (150.00) 112days",
+      },
+      1383: {
+        cards: 2,
+        name: "Carnet OPEN 10h, pn-pt 9-17 + 2 karty zniżkowe (50.00) 112days",
+      },
+      1384: {
+        cards: 2,
+        name: "Carnet OPEN 10h, sb-nd + 2 karty zniżkowe (250.00) 112days",
+      },
+      1385: { cards: 0, name: "Carnet OPEN 5h, pn-pt 9-17 (200.00) 56days" },
+      1386: {
+        cards: 0,
+        name: "Carnet JUNIOR OPEN 10h, pn-pt 9-16 (300.00) 112days",
+      },
+      1398: {
+        cards: 2,
+        name: "Carnet Open 10h pn-pt, 17-23 + 2 karty zniżkowe (350.00) 24days",
+      },
     },
   },
   82: {
